@@ -11,7 +11,7 @@
     "prepublish": "npm run build"
   },
   "dependencies": {
-    "@signalapp/libsignal-client": "^0.40.1",
+    "@signalapp/libsignal-client": "^0.80.0",
     "solid-js": "^1.8.11"
   },
   "devDependencies": {

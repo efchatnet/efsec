@@ -10,7 +10,8 @@ import {
   PrivateKey,
   PublicKey,
   ProtocolAddress,
-  Direction
+  Direction,
+  IdentityChange
 } from '@signalapp/libsignal-client';
 
 export class IdentityKeyStoreImpl extends IdentityKeyStore {
@@ -137,7 +138,7 @@ export class IdentityKeyStoreImpl extends IdentityKeyStore {
     return this.registrationId;
   }
 
-  async saveIdentity(address: ProtocolAddress, key: PublicKey): Promise<IdentityKeyStore.IdentityChange> {
+  async saveIdentity(address: ProtocolAddress, key: PublicKey): Promise<IdentityChange> {
     const id = this.getIdentityId(address);
     const serialized = key.serialize();
     
@@ -164,12 +165,10 @@ export class IdentityKeyStoreImpl extends IdentityKeyStore {
     }
     
     // Return the appropriate IdentityChange value
-    if (!existing) {
-      return IdentityKeyStore.IdentityChange.NewIdentity;
-    } else if (changed) {
-      return IdentityKeyStore.IdentityChange.IdentityChanged;
+    if (!existing || !changed) {
+      return IdentityChange.NewOrUnchanged;
     } else {
-      return IdentityKeyStore.IdentityChange.NoChange;
+      return IdentityChange.ReplacedExisting;
     }
   }
 

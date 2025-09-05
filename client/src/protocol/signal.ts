@@ -176,6 +176,9 @@ export class SignalProtocol {
       signedPreKeySignature: Uint8Array;
       preKeyId?: number | null;
       preKeyPublic?: Uint8Array | null;
+      kyberPreKeyId?: number;
+      kyberPreKey?: Uint8Array;
+      kyberPreKeySignature?: Uint8Array;
     }
   ): Promise<void> {
     const theirIdentityKey = PublicKey.deserialize(new Uint8Array(Buffer.from(bundle.identityKey)));
@@ -275,7 +278,8 @@ export class SignalProtocol {
         this.identityStore,
         this.preKeyStore,
         this.signedPreKeyStore,
-        this.kyberPreKeyStore
+        this.kyberPreKeyStore,
+        UsePQRatchet.Yes
       ) as any; // Cast to fix type mismatch
 
       // Remove used one-time prekey

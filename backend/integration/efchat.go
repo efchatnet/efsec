@@ -32,6 +32,7 @@ type E2EIntegration struct {
 	store         *postgres.Store
 	keyHandler    *handlers.KeyHandler
 	groupHandler  *handlers.GroupHandler
+	dmHandler     *handlers.DMHandler
 	jwtSecret     string
 	jwtIssuer     string
 }
@@ -57,6 +58,7 @@ func NewE2EIntegration(config *Config) (*E2EIntegration, error) {
 		store:        store,
 		keyHandler:   handlers.NewKeyHandler(store),
 		groupHandler: handlers.NewGroupHandler(store),
+		dmHandler:    handlers.NewDMHandler(store),
 		jwtSecret:    config.JWTSecret,
 		jwtIssuer:    config.JWTIssuer,
 	}, nil
@@ -98,10 +100,17 @@ func (e *E2EIntegration) RegisterRoutes(router *mux.Router, authMiddleware func(
 	api.HandleFunc("/group/create", e.groupHandler.CreateGroup).Methods("POST", "OPTIONS")
 	api.HandleFunc("/group/create-space", spaceHandler.CreateE2EGroup).Methods("POST", "OPTIONS")
 	api.HandleFunc("/group/{groupId}/join", e.groupHandler.JoinGroup).Methods("POST", "OPTIONS")
-	api.HandleFunc("/group/{groupId}/keys", e.groupHandler.GetGroupKeys).Methods("GET", "OPTIONS")
+	api.HandleFunc("/group/{groupId}/members", e.groupHandler.GetGroupMembers).Methods("GET", "OPTIONS")
 	api.HandleFunc("/group/{groupId}/message", e.groupHandler.SendGroupMessage).Methods("POST", "OPTIONS")
-	api.HandleFunc("/group/{groupId}/leave", e.leaveGroup).Methods("POST", "OPTIONS")
+	api.HandleFunc("/group/{groupId}/leave", e.groupHandler.LeaveGroup).Methods("POST", "OPTIONS")
 	api.HandleFunc("/group/{groupId}/rekey", e.rekeyGroup).Methods("POST", "OPTIONS")
+	
+	// DM endpoints (for encrypted direct messages and key distribution)
+	api.HandleFunc("/dm/send", e.dmHandler.SendDM).Methods("POST", "OPTIONS")
+	api.HandleFunc("/dm/messages", e.dmHandler.GetDMs).Methods("GET", "OPTIONS")
+	api.HandleFunc("/dm/messages/{userId}", e.dmHandler.GetDMsWith).Methods("GET", "OPTIONS")
+	api.HandleFunc("/dm/message/{messageId}/read", e.dmHandler.MarkDMRead).Methods("POST", "OPTIONS")
+	api.HandleFunc("/dm/message/{messageId}", e.dmHandler.DeleteDM).Methods("DELETE", "OPTIONS")
 }
 
 // GetStore returns the underlying storage implementation
@@ -136,25 +145,6 @@ func (e *E2EIntegration) getKeyStatus(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`{"remaining_keys":` + string(rune(count)) + `}`))
 }
 
-// leaveGroup handles a user leaving a group
-func (e *E2EIntegration) leaveGroup(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r)
-	if !ok {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	vars := mux.Vars(r)
-	groupID := vars["groupId"]
-
-	if err := e.store.RemoveGroupMember(groupID, userID); err != nil {
-		http.Error(w, "Failed to leave group", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"left"}`))
-}
 
 // rekeyGroup initiates a key rotation for a group
 func (e *E2EIntegration) rekeyGroup(w http.ResponseWriter, r *http.Request) {

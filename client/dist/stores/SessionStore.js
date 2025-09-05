@@ -1,14 +1,11 @@
-"use strict";
 // Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SessionStoreImpl = void 0;
-const libsignal_client_1 = require("@signalapp/libsignal-client");
-class SessionStoreImpl extends libsignal_client_1.SessionStore {
+import { SessionStore, SessionRecord } from '@signalapp/libsignal-client';
+export class SessionStoreImpl extends SessionStore {
     constructor() {
         super();
         this.dbName = 'efchat-e2e-sessions';
@@ -75,7 +72,7 @@ class SessionStoreImpl extends libsignal_client_1.SessionStore {
         if (!serialized) {
             return null;
         }
-        return libsignal_client_1.SessionRecord.deserialize(Buffer.from(serialized));
+        return SessionRecord.deserialize(Buffer.from(serialized));
     }
     async getExistingSessions(addresses) {
         const sessions = [];
@@ -88,5 +85,4 @@ class SessionStoreImpl extends libsignal_client_1.SessionStore {
         return sessions;
     }
 }
-exports.SessionStoreImpl = SessionStoreImpl;
 //# sourceMappingURL=SessionStore.js.map

@@ -1,25 +1,21 @@
-"use strict";
 // Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.E2EProvider = E2EProvider;
-exports.useE2E = useE2E;
-const solid_js_1 = require("solid-js");
-const SignalManager_1 = require("../protocol/SignalManager");
-const E2EContext = (0, solid_js_1.createContext)();
-function E2EProvider(props) {
-    const [signalManager, setSignalManager] = (0, solid_js_1.createSignal)(null);
-    const [isInitialized, setIsInitialized] = (0, solid_js_1.createSignal)(false);
-    const [isEstablishingSession, setIsEstablishingSession] = (0, solid_js_1.createSignal)(false);
-    const [error, setError] = (0, solid_js_1.createSignal)(null);
+import { createContext, useContext, createSignal, onMount } from 'solid-js';
+import { SignalManager } from '../protocol/SignalManager';
+const E2EContext = createContext();
+export function E2EProvider(props) {
+    const [signalManager, setSignalManager] = createSignal(null);
+    const [isInitialized, setIsInitialized] = createSignal(false);
+    const [isEstablishingSession, setIsEstablishingSession] = createSignal(false);
+    const [error, setError] = createSignal(null);
     const initializeE2E = async (apiUrl, authToken, userId) => {
         try {
             setError(null);
-            const manager = new SignalManager_1.SignalManager({
+            const manager = new SignalManager({
                 apiUrl,
                 authToken,
                 userId
@@ -86,7 +82,7 @@ function E2EProvider(props) {
             return false;
         }
     };
-    (0, solid_js_1.onMount)(() => {
+    onMount(() => {
         if (props.autoInitialize && props.authToken && props.userId) {
             initializeE2E(props.apiUrl, props.authToken, props.userId);
         }
@@ -105,8 +101,8 @@ function E2EProvider(props) {
       {props.children}
     </E2EContext.Provider>);
 }
-function useE2E() {
-    const context = (0, solid_js_1.useContext)(E2EContext);
+export function useE2E() {
+    const context = useContext(E2EContext);
     if (!context) {
         throw new Error('useE2E must be used within E2EProvider');
     }

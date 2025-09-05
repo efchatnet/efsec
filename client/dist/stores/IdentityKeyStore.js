@@ -1,14 +1,11 @@
-"use strict";
 // Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.IdentityKeyStoreImpl = void 0;
-const libsignal_client_1 = require("@signalapp/libsignal-client");
-class IdentityKeyStoreImpl extends libsignal_client_1.IdentityKeyStore {
+import { IdentityKeyStore, PrivateKey, PublicKey, IdentityChange } from '@signalapp/libsignal-client';
+export class IdentityKeyStoreImpl extends IdentityKeyStore {
     constructor() {
         super();
         this.identityKey = null;
@@ -42,7 +39,7 @@ class IdentityKeyStoreImpl extends libsignal_client_1.IdentityKeyStore {
         // Load identity key and registration ID
         const identityData = await this.loadIdentityFromDB();
         if (identityData) {
-            this.identityKey = libsignal_client_1.PrivateKey.deserialize(Buffer.from(identityData.privateKey));
+            this.identityKey = PrivateKey.deserialize(Buffer.from(identityData.privateKey));
             this.registrationId = identityData.registrationId;
         }
         // Load trusted identities
@@ -131,10 +128,10 @@ class IdentityKeyStoreImpl extends libsignal_client_1.IdentityKeyStore {
         }
         // Return the appropriate IdentityChange value
         if (!existing || !changed) {
-            return libsignal_client_1.IdentityChange.NewOrUnchanged;
+            return IdentityChange.NewOrUnchanged;
         }
         else {
-            return libsignal_client_1.IdentityChange.ReplacedExisting;
+            return IdentityChange.ReplacedExisting;
         }
     }
     async isTrustedIdentity(address, key, _direction) {
@@ -153,8 +150,7 @@ class IdentityKeyStoreImpl extends libsignal_client_1.IdentityKeyStore {
         if (!serialized) {
             return null;
         }
-        return libsignal_client_1.PublicKey.deserialize(Buffer.from(serialized));
+        return PublicKey.deserialize(Buffer.from(serialized));
     }
 }
-exports.IdentityKeyStoreImpl = IdentityKeyStoreImpl;
 //# sourceMappingURL=IdentityKeyStore.js.map

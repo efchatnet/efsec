@@ -1,13 +1,10 @@
-"use strict";
 // Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.E2EIndicator = void 0;
-const E2EIndicator = (props) => {
+export const E2EIndicator = (props) => {
     const getIndicatorColor = () => {
         if (!props.enabled)
             return 'text-gray-400';
@@ -34,5 +31,4 @@ const E2EIndicator = (props) => {
       </span>
     </div>);
 };
-exports.E2EIndicator = E2EIndicator;
 //# sourceMappingURL=E2EIndicator.jsx.map

@@ -1,14 +1,11 @@
-"use strict";
 // Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SenderKeyStoreImpl = void 0;
-const libsignal_client_1 = require("@signalapp/libsignal-client");
-class SenderKeyStoreImpl extends libsignal_client_1.SenderKeyStore {
+import { SenderKeyStore, SenderKeyRecord } from '@signalapp/libsignal-client';
+export class SenderKeyStoreImpl extends SenderKeyStore {
     constructor() {
         super();
         this.db = null;
@@ -71,7 +68,7 @@ class SenderKeyStoreImpl extends libsignal_client_1.SenderKeyStore {
         if (!serialized) {
             return null;
         }
-        return libsignal_client_1.SenderKeyRecord.deserialize(Buffer.from(serialized));
+        return SenderKeyRecord.deserialize(Buffer.from(serialized));
     }
     async removeSenderKey(sender, distributionId) {
         const id = this.getSenderKeyId(sender, distributionId);
@@ -111,5 +108,4 @@ class SenderKeyStoreImpl extends libsignal_client_1.SenderKeyStore {
         }
     }
 }
-exports.SenderKeyStoreImpl = SenderKeyStoreImpl;
 //# sourceMappingURL=SenderKeyStore.js.map

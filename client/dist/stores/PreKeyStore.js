@@ -1,14 +1,11 @@
-"use strict";
 // Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.PreKeyStoreImpl = void 0;
-const libsignal_client_1 = require("@signalapp/libsignal-client");
-class PreKeyStoreImpl extends libsignal_client_1.PreKeyStore {
+import { PreKeyStore, PreKeyRecord } from '@signalapp/libsignal-client';
+export class PreKeyStoreImpl extends PreKeyStore {
     constructor() {
         super();
         this.dbName = 'efchat-e2e-prekeys';
@@ -81,7 +78,7 @@ class PreKeyStoreImpl extends libsignal_client_1.PreKeyStore {
         if (!serialized) {
             throw new Error(`PreKey ${id} not found`);
         }
-        return libsignal_client_1.PreKeyRecord.deserialize(Buffer.from(serialized));
+        return PreKeyRecord.deserialize(Buffer.from(serialized));
     }
     async removePreKey(id) {
         this.preKeys.delete(id);
@@ -98,5 +95,4 @@ class PreKeyStoreImpl extends libsignal_client_1.PreKeyStore {
         return this.preKeys.size;
     }
 }
-exports.PreKeyStoreImpl = PreKeyStoreImpl;
 //# sourceMappingURL=PreKeyStore.js.map

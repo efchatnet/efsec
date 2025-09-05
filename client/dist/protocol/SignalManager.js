@@ -1,4 +1,3 @@
-"use strict";
 // Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -13,20 +12,18 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.SignalManager = void 0;
-const signal_1 = require("./signal");
-const groups_1 = require("./groups");
+import { SignalProtocol } from './signal';
+import { GroupProtocol } from './groups';
 /**
  * High-level Signal Protocol manager for efchat integration
  * Handles key management, session establishment, and message encryption/decryption
  */
-class SignalManager {
+export class SignalManager {
     constructor(config) {
         this.initialized = false;
         this.config = config;
-        this.signal = new signal_1.SignalProtocol();
-        this.groupProtocol = new groups_1.GroupProtocol(this.signal);
+        this.signal = new SignalProtocol();
+        this.groupProtocol = new GroupProtocol(this.signal);
     }
     /**
      * Initialize the Signal Protocol and register keys with backend
@@ -225,5 +222,4 @@ class SignalManager {
         return await this.signal.hasSession(userId, deviceId);
     }
 }
-exports.SignalManager = SignalManager;
 //# sourceMappingURL=SignalManager.js.map

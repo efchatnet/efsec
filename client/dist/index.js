@@ -1,53 +1,36 @@
-"use strict";
 // Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __exportStar = (this && this.__exportStar) || function(m, exports) {
-    for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
-};
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EfSecClient = void 0;
-const signal_1 = require("./protocol/signal");
-const groups_1 = require("./protocol/groups");
-const KeyDistributionService_1 = require("./services/KeyDistributionService");
-const indexeddb_1 = require("./storage/indexeddb");
+import { SignalProtocol } from './protocol/signal';
+import { GroupProtocol } from './protocol/groups';
+import { KeyDistributionService } from './services/KeyDistributionService';
+import { E2EStorage } from './storage/indexeddb';
 // Core Protocol exports
-__exportStar(require("./protocol/signal"), exports);
-__exportStar(require("./protocol/groups"), exports);
-__exportStar(require("./protocol/SignalManager"), exports);
+export * from './protocol/signal';
+export * from './protocol/groups';
+export * from './protocol/SignalManager';
 // Storage exports
-__exportStar(require("./storage/indexeddb"), exports);
-__exportStar(require("./stores"), exports);
+export * from './storage/indexeddb';
+export * from './stores';
 // Service exports
-__exportStar(require("./services/DMService"), exports);
-__exportStar(require("./services/KeyDistributionService"), exports);
+export * from './services/DMService';
+export * from './services/KeyDistributionService';
 // Component exports (SolidJS)
-__exportStar(require("./components"), exports);
-class EfSecClient {
+export * from './components';
+export class EfSecClient {
     constructor(apiUrl) {
         this.apiUrl = apiUrl;
-        this.signal = new signal_1.SignalProtocol();
-        this.groups = new groups_1.GroupProtocol(this.signal);
-        this.storage = new indexeddb_1.E2EStorage();
-        this.keyDistribution = new KeyDistributionService_1.KeyDistributionService(this.signal, this.groups, apiUrl);
+        this.signal = new SignalProtocol();
+        this.groups = new GroupProtocol(this.signal);
+        this.storage = new E2EStorage();
+        this.keyDistribution = new KeyDistributionService(this.signal, this.groups, apiUrl);
     }
     async init(authToken) {
         this.authToken = authToken;
-        this.keyDistribution = new KeyDistributionService_1.KeyDistributionService(this.signal, this.groups, this.apiUrl, authToken);
+        this.keyDistribution = new KeyDistributionService(this.signal, this.groups, this.apiUrl, authToken);
         await this.storage.init();
         await this.signal.initialize();
         await this.groups.initialize();
@@ -213,5 +196,4 @@ class EfSecClient {
         await this.keyDistribution.handleNewMember(groupId, newMemberId);
     }
 }
-exports.EfSecClient = EfSecClient;
 //# sourceMappingURL=index.js.map

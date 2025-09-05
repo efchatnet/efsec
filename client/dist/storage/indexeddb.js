@@ -1,13 +1,10 @@
-"use strict";
 // Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.E2EStorage = void 0;
-class E2EStorage {
+export class E2EStorage {
     constructor() {
         this.dbName = 'efchat-e2e';
         this.db = null;
@@ -141,5 +138,4 @@ class E2EStorage {
         }));
     }
 }
-exports.E2EStorage = E2EStorage;
 //# sourceMappingURL=indexeddb.js.map

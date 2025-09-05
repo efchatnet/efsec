@@ -1,30 +1,27 @@
-"use strict";
 // Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.EncryptedChat = void 0;
-const solid_js_1 = require("solid-js");
-const E2EProvider_1 = require("./E2EProvider");
-const E2EIndicator_1 = require("./E2EIndicator");
-const EncryptedChat = (props) => {
-    const e2e = (0, E2EProvider_1.useE2E)();
-    const [inputMessage, setInputMessage] = (0, solid_js_1.createSignal)('');
-    const [sending, setSending] = (0, solid_js_1.createSignal)(false);
-    const [sessionEstablished, setSessionEstablished] = (0, solid_js_1.createSignal)(false);
-    const [decryptedMessages, setDecryptedMessages] = (0, solid_js_1.createSignal)(new Map());
+import { createSignal, createEffect, Show, For } from 'solid-js';
+import { useE2E } from './E2EProvider';
+import { E2EIndicator } from './E2EIndicator';
+export const EncryptedChat = (props) => {
+    const e2e = useE2E();
+    const [inputMessage, setInputMessage] = createSignal('');
+    const [sending, setSending] = createSignal(false);
+    const [sessionEstablished, setSessionEstablished] = createSignal(false);
+    const [decryptedMessages, setDecryptedMessages] = createSignal(new Map());
     // Check session status
-    (0, solid_js_1.createEffect)(async () => {
+    createEffect(async () => {
         if (e2e.isInitialized()) {
             const hasSession = await e2e.hasSession(props.recipientId);
             setSessionEstablished(hasSession);
         }
     });
     // Decrypt incoming messages
-    (0, solid_js_1.createEffect)(() => {
+    createEffect(() => {
         props.messages.forEach(async (msg) => {
             if (!msg.isOutgoing && msg.ciphertext && !decryptedMessages().has(msg.id)) {
                 try {
@@ -87,17 +84,17 @@ const EncryptedChat = (props) => {
       <div class="flex items-center justify-between p-4 border-b">
         <div class="flex items-center gap-3">
           <h2 class="text-xl font-semibold">{props.recipientName}</h2>
-          <E2EIndicator_1.E2EIndicator enabled={e2e.isInitialized()} sessionEstablished={sessionEstablished()}/>
+          <E2EIndicator enabled={e2e.isInitialized()} sessionEstablished={sessionEstablished()}/>
         </div>
       </div>
 
       {/* Messages */}
       <div class="flex-1 overflow-y-auto p-4 space-y-4">
-        <solid_js_1.Show when={props.messages.length > 0} fallback={<div class="text-center text-gray-500 mt-8">
+        <Show when={props.messages.length > 0} fallback={<div class="text-center text-gray-500 mt-8">
               <p>No messages yet. Start an encrypted conversation!</p>
               <p class="text-sm mt-2">🔒 Messages are end-to-end encrypted</p>
             </div>}>
-          <solid_js_1.For each={props.messages}>
+          <For each={props.messages}>
             {(msg) => (<div class={`flex ${msg.isOutgoing ? 'justify-end' : 'justify-start'}`}>
                 <div class={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${msg.isOutgoing
                 ? 'bg-blue-600 text-white'
@@ -111,13 +108,13 @@ const EncryptedChat = (props) => {
                   </div>
                 </div>
               </div>)}
-          </solid_js_1.For>
-        </solid_js_1.Show>
+          </For>
+        </Show>
       </div>
 
       {/* Input */}
       <div class="border-t p-4">
-        <solid_js_1.Show when={e2e.isInitialized()} fallback={<div class="text-center text-gray-500">
+        <Show when={e2e.isInitialized()} fallback={<div class="text-center text-gray-500">
               <p>Initializing encryption...</p>
             </div>}>
           <div class="flex gap-2">
@@ -133,12 +130,11 @@ const EncryptedChat = (props) => {
               {sending() ? 'Sending...' : 'Send'}
             </button>
           </div>
-          <solid_js_1.Show when={e2e.isEstablishingSession()}>
+          <Show when={e2e.isEstablishingSession()}>
             <p class="text-sm text-gray-500 mt-2">Establishing encrypted session...</p>
-          </solid_js_1.Show>
-        </solid_js_1.Show>
+          </Show>
+        </Show>
       </div>
     </div>);
 };
-exports.EncryptedChat = EncryptedChat;
 //# sourceMappingURL=EncryptedChat.jsx.map

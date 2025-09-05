@@ -1,4 +1,3 @@
-"use strict";
 // Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -13,46 +12,10 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.E2EWebSocketInterceptor = exports.E2EIntegration = void 0;
-exports.createE2EIntegration = createE2EIntegration;
 /**
  * Safe E2E wrapper that gracefully falls back to unencrypted messaging
  */
-class E2EIntegration {
+export class E2EIntegration {
     constructor(config) {
         this.isAvailable = false;
         this.config = config;
@@ -64,7 +27,7 @@ class E2EIntegration {
     async checkAvailability() {
         try {
             // Dynamically import to prevent hard dependency
-            const { SignalManager, DMService } = await Promise.resolve().then(() => __importStar(require('../index')));
+            const { SignalManager, DMService } = await import('../index');
             this.isAvailable = true;
             if (this.config.debug) {
                 console.log('E2E encryption module loaded successfully');
@@ -105,7 +68,7 @@ class E2EIntegration {
         if (!token) {
             throw new Error('No auth token for E2E');
         }
-        const { SignalManager, DMService } = await Promise.resolve().then(() => __importStar(require('../index')));
+        const { SignalManager, DMService } = await import('../index');
         // Initialize Signal Manager
         this.signalManager = new SignalManager({
             apiUrl: this.config.apiUrl || '/api/e2e',
@@ -235,11 +198,10 @@ class E2EIntegration {
         }
     }
 }
-exports.E2EIntegration = E2EIntegration;
 /**
  * WebSocket message interceptor for automatic E2E handling
  */
-class E2EWebSocketInterceptor {
+export class E2EWebSocketInterceptor {
     constructor(e2e) {
         this.e2e = e2e;
     }
@@ -279,11 +241,10 @@ class E2EWebSocketInterceptor {
         };
     }
 }
-exports.E2EWebSocketInterceptor = E2EWebSocketInterceptor;
 /**
  * Factory function for safe E2E integration
  */
-function createE2EIntegration(config) {
+export function createE2EIntegration(config) {
     return new E2EIntegration(config);
 }
 //# sourceMappingURL=efchat.js.map

@@ -1,18 +1,15 @@
-"use strict";
 // Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.GroupProtocol = void 0;
-const libsignal_client_1 = require("@signalapp/libsignal-client");
-const SenderKeyStore_1 = require("../stores/SenderKeyStore");
-class GroupProtocol {
+import { ProtocolAddress, SenderKeyDistributionMessage, groupEncrypt, groupDecrypt, processSenderKeyDistributionMessage } from '@signalapp/libsignal-client';
+import { SenderKeyStoreImpl } from '../stores/SenderKeyStore';
+export class GroupProtocol {
     constructor(_signalProtocol) {
         this.initialized = false;
-        this.senderKeyStore = new SenderKeyStore_1.SenderKeyStoreImpl();
+        this.senderKeyStore = new SenderKeyStoreImpl();
         this.groupDistributionIds = new Map();
     }
     async initialize() {
@@ -76,8 +73,8 @@ class GroupProtocol {
             request.onerror = () => reject(request.error);
         });
         // Create our sender key distribution message
-        const ourAddress = libsignal_client_1.ProtocolAddress.new('self', 1);
-        const distributionMessage = await libsignal_client_1.SenderKeyDistributionMessage.create(ourAddress, distributionId, this.senderKeyStore);
+        const ourAddress = ProtocolAddress.new('self', 1);
+        const distributionMessage = await SenderKeyDistributionMessage.create(ourAddress, distributionId, this.senderKeyStore);
         return distributionMessage;
     }
     async joinGroup(groupId, distributionId) {
@@ -102,9 +99,9 @@ class GroupProtocol {
         if (!distributionId) {
             throw new Error(`Not a member of group ${groupId}`);
         }
-        const senderAddress = libsignal_client_1.ProtocolAddress.new(senderId, senderDeviceId);
-        const message = libsignal_client_1.SenderKeyDistributionMessage.deserialize(Buffer.from(distributionMessage));
-        await (0, libsignal_client_1.processSenderKeyDistributionMessage)(senderAddress, message, this.senderKeyStore);
+        const senderAddress = ProtocolAddress.new(senderId, senderDeviceId);
+        const message = SenderKeyDistributionMessage.deserialize(Buffer.from(distributionMessage));
+        await processSenderKeyDistributionMessage(senderAddress, message, this.senderKeyStore);
         // Track group member
         await this.addGroupMember(groupId, senderId, senderDeviceId);
     }
@@ -113,8 +110,8 @@ class GroupProtocol {
         if (!distributionId) {
             throw new Error(`Not a member of group ${groupId}`);
         }
-        const ourAddress = libsignal_client_1.ProtocolAddress.new('self', 1);
-        const ciphertext = await (0, libsignal_client_1.groupEncrypt)(ourAddress, distributionId, this.senderKeyStore, Buffer.from(plaintext));
+        const ourAddress = ProtocolAddress.new('self', 1);
+        const ciphertext = await groupEncrypt(ourAddress, distributionId, this.senderKeyStore, Buffer.from(plaintext));
         return ciphertext.serialize();
     }
     async decryptGroupMessage(groupId, senderId, senderDeviceId, ciphertext) {
@@ -122,8 +119,8 @@ class GroupProtocol {
         if (!distributionId) {
             throw new Error(`Not a member of group ${groupId}`);
         }
-        const senderAddress = libsignal_client_1.ProtocolAddress.new(senderId, senderDeviceId);
-        const plaintext = await (0, libsignal_client_1.groupDecrypt)(senderAddress, this.senderKeyStore, Buffer.from(ciphertext));
+        const senderAddress = ProtocolAddress.new(senderId, senderDeviceId);
+        const plaintext = await groupDecrypt(senderAddress, this.senderKeyStore, Buffer.from(ciphertext));
         return new Uint8Array(plaintext);
     }
     async addGroupMember(groupId, userId, deviceId) {
@@ -194,8 +191,8 @@ class GroupProtocol {
             request.onerror = () => reject(request.error);
         });
         // Create new sender key distribution message
-        const ourAddress = libsignal_client_1.ProtocolAddress.new('self', 1);
-        const distributionMessage = await libsignal_client_1.SenderKeyDistributionMessage.create(ourAddress, newDistributionId, this.senderKeyStore);
+        const ourAddress = ProtocolAddress.new('self', 1);
+        const distributionMessage = await SenderKeyDistributionMessage.create(ourAddress, newDistributionId, this.senderKeyStore);
         return distributionMessage;
     }
     async leaveGroup(groupId) {
@@ -245,5 +242,4 @@ class GroupProtocol {
         return uuid ? uuid.toString() : null;
     }
 }
-exports.GroupProtocol = GroupProtocol;
 //# sourceMappingURL=groups.js.map

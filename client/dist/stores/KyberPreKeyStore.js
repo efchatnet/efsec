@@ -1,14 +1,11 @@
-"use strict";
 // Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.KyberPreKeyStoreImpl = void 0;
-const libsignal_client_1 = require("@signalapp/libsignal-client");
-class KyberPreKeyStoreImpl extends libsignal_client_1.KyberPreKeyStore {
+import { KyberPreKeyStore, KyberPreKeyRecord } from '@signalapp/libsignal-client';
+export class KyberPreKeyStoreImpl extends KyberPreKeyStore {
     constructor() {
         super(...arguments);
         this.kyberPreKeys = new Map();
@@ -63,7 +60,7 @@ class KyberPreKeyStoreImpl extends libsignal_client_1.KyberPreKeyStore {
                 request.onsuccess = () => {
                     if (request.result) {
                         try {
-                            const record = libsignal_client_1.KyberPreKeyRecord.deserialize(Buffer.from(request.result.record));
+                            const record = KyberPreKeyRecord.deserialize(Buffer.from(request.result.record));
                             this.kyberPreKeys.set(keyId, record);
                             resolve(record);
                         }
@@ -106,5 +103,4 @@ class KyberPreKeyStoreImpl extends libsignal_client_1.KyberPreKeyStore {
         return this.kyberPreKeys.size;
     }
 }
-exports.KyberPreKeyStoreImpl = KyberPreKeyStoreImpl;
 //# sourceMappingURL=KyberPreKeyStore.js.map

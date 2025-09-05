@@ -1,4 +1,3 @@
-"use strict";
 // Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
@@ -13,12 +12,10 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.DMService = void 0;
 /**
  * Service for managing Direct Message spaces with E2E encryption
  */
-class DMService {
+export class DMService {
     constructor(config) {
         this.config = config;
         this.signalManager = config.signalManager;
@@ -184,5 +181,4 @@ class DMService {
         this.signalManager = signalManager;
     }
 }
-exports.DMService = DMService;
 //# sourceMappingURL=DMService.js.map

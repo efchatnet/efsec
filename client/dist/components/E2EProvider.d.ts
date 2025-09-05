@@ -1,7 +1,6 @@
 import { JSX } from 'solid-js';
-import { SignalManager } from '../protocol/SignalManager';
 interface E2EContextType {
-    signalManager: SignalManager | null;
+    signalManager: null;
     isInitialized: () => boolean;
     isEstablishingSession: () => boolean;
     error: () => string | null;

@@ -5,11 +5,10 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import { createContext, useContext, createSignal, onMount, JSX } from 'solid-js';
-import { SignalManager } from '../protocol/SignalManager';
+import { createContext, useContext, createSignal, JSX } from 'solid-js';
 
 interface E2EContextType {
-  signalManager: SignalManager | null;
+  signalManager: null;
   isInitialized: () => boolean;
   isEstablishingSession: () => boolean;
   error: () => string | null;
@@ -30,96 +29,30 @@ export interface E2EProviderProps {
 }
 
 export function E2EProvider(props: E2EProviderProps) {
-  const [signalManager, setSignalManager] = createSignal<SignalManager | null>(null);
-  const [isInitialized, setIsInitialized] = createSignal(false);
-  const [isEstablishingSession, setIsEstablishingSession] = createSignal(false);
-  const [error, setError] = createSignal<string | null>(null);
+  const [isInitialized] = createSignal(false);
+  const [isEstablishingSession] = createSignal(false);
+  const [error] = createSignal<string | null>('E2E encryption not available: Signal Protocol requires native dependencies not supported in browsers');
 
   const initializeE2E = async (apiUrl: string, authToken: string, userId: string) => {
-    try {
-      setError(null);
-      const manager = new SignalManager({
-        apiUrl,
-        authToken,
-        userId
-      });
-      
-      await manager.initialize();
-      setSignalManager(manager);
-      setIsInitialized(true);
-      
-      // Check and replenish keys if needed
-      await manager.checkAndReplenishKeys(20);
-      
-      console.log('E2E encryption initialized successfully');
-    } catch (err) {
-      console.error('Failed to initialize E2E:', err);
-      setError(err instanceof Error ? err.message : 'Failed to initialize E2E');
-      setIsInitialized(false);
-    }
+    throw new Error('E2E encryption not available: Signal Protocol requires native dependencies not supported in browsers');
   };
 
   const sendEncryptedMessage = async (recipientId: string, message: string) => {
-    const manager = signalManager();
-    if (!manager) throw new Error('E2E not initialized');
-    
-    setIsEstablishingSession(true);
-    try {
-      const encrypted = await manager.encryptMessage(recipientId, message);
-      
-      // Send via API
-      const response = await fetch(`${props.apiUrl}/api/e2e/dm/send`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${props.authToken}`
-        },
-        body: JSON.stringify({
-          recipient_id: recipientId,
-          ciphertext: encrypted.encrypted,
-          message_type: encrypted.type,
-          device_id: encrypted.deviceId
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to send encrypted message');
-      }
-      
-      return await response.json();
-    } finally {
-      setIsEstablishingSession(false);
-    }
+    throw new Error('E2E encryption not available in browsers');
   };
 
   const decryptMessage = async (senderId: string, encryptedData: string, messageType: number) => {
-    const manager = signalManager();
-    if (!manager) throw new Error('E2E not initialized');
-    
-    return await manager.decryptMessage(senderId, encryptedData, messageType);
+    throw new Error('E2E encryption not available in browsers');
   };
 
   const hasSession = async (userId: string) => {
-    const manager = signalManager();
-    if (!manager) return false;
-    
-    // Check if session exists (this is a method we need to add to SignalManager)
-    try {
-      const sessionExists = await manager.hasSession(userId);
-      return sessionExists;
-    } catch {
-      return false;
-    }
+    return false;
   };
 
-  onMount(() => {
-    if (props.autoInitialize && props.authToken && props.userId) {
-      initializeE2E(props.apiUrl, props.authToken, props.userId);
-    }
-  });
+  // E2E disabled in browser environment
 
   const value: E2EContextType = {
-    signalManager: signalManager(),
+    signalManager: null,
     isInitialized,
     isEstablishingSession,
     error,

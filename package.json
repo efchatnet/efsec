@@ -1,0 +1,32 @@
+{
+  "name": "@efchat/efsec",
+  "version": "0.1.0",
+  "description": "E2E encryption module for efchat using Signal protocol",
+  "main": "client/dist/index.js",
+  "types": "client/dist/index.d.ts",
+  "scripts": {
+    "build": "cd client && npm run build",
+    "test": "cd client && npm test",
+    "verify": "make verify"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/efchatnet/efsec.git"
+  },
+  "keywords": [
+    "signal-protocol",
+    "e2e-encryption",
+    "end-to-end",
+    "encryption"
+  ],
+  "author": "William Theesfeld <william@theesfeld.net>",
+  "license": "GPL-3.0-or-later",
+  "files": [
+    "client/dist/**/*",
+    "LICENSE",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

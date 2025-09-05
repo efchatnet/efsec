@@ -1,4 +1,4 @@
-// Copyright (C) 2024 William Theesfeld <william@theesfeld.net>
+// Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -9,9 +9,26 @@ import { SignalProtocol, SignalKeys } from './protocol/signal';
 import { SenderKeysProtocol, SenderKey, GroupSession } from './protocol/senderkeys';
 import { E2EStorage } from './storage/indexeddb';
 
+// Core Protocol exports
 export * from './protocol/signal';
 export * from './protocol/senderkeys';
+export * from './protocol/SignalManager';
+export * from './protocol/groups';
+
+// Storage exports
 export * from './storage/indexeddb';
+export * from './stores';
+
+// Service exports
+export * from './services/DMService';
+
+// React Component exports
+export * from './components/E2EStatusIndicator';
+export * from './components/E2ELockIcon';
+export * from './components/DMInitiator';
+
+// React Hook exports
+export * from './hooks/useE2EMessaging';
 
 export interface E2EClient {
   signal: SignalProtocol;

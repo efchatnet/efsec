@@ -1,4 +1,4 @@
-// Copyright (C) 2024 William Theesfeld <william@theesfeld.net>
+// Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -41,7 +41,24 @@ type GroupStore interface {
 	GetGroupMessages(groupID string, limit int) ([]models.EncryptedGroupMessage, error)
 }
 
+type SpaceStore interface {
+	// DM space management
+	CreateDMSpace(spaceID, user1ID, user2ID string, enableE2E bool) error
+	FindDMSpace(user1ID, user2ID string) (*models.DMSpace, error)
+	GetUserDMSpaces(userID string) ([]models.DMSpace, error)
+	
+	// E2E space management
+	CreateE2EGroupSpace(spaceID, createdBy string, memberIDs []string) error
+	GetE2ESpace(spaceID string) (*models.E2ESpace, error)
+	EnableE2EForSpace(spaceID string) error
+	IsSpaceMember(spaceID, userID string) (bool, error)
+	
+	// Session management
+	SessionExists(userID, peerID string) (bool, error)
+}
+
 type Store interface {
 	KeyStore
 	GroupStore
+	SpaceStore
 }

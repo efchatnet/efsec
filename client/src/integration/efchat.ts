@@ -1,0 +1,342 @@
+// Copyright (C) 2025 efchat.net <tj@efchat.net>
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+/**
+ * Graceful E2E Integration for efchat
+ * 
+ * This module provides a fail-safe integration layer that allows efchat
+ * to continue working normally even if E2E encryption fails or is unavailable.
+ */
+
+import type { SignalManager } from '../protocol/SignalManager';
+import type { DMService } from '../services/DMService';
+import type { E2EMessageHandler } from '../hooks/useE2EMessaging';
+
+export interface E2EIntegrationConfig {
+  apiUrl?: string;
+  getAuthToken: () => string | null;
+  onE2EStatusChange?: (enabled: boolean) => void;
+  debug?: boolean;
+}
+
+export interface MessageEnvelope {
+  content: string;
+  encrypted?: boolean;
+  encryptionData?: {
+    type: number;
+    deviceId?: number;
+  };
+}
+
+/**
+ * Safe E2E wrapper that gracefully falls back to unencrypted messaging
+ */
+export class E2EIntegration {
+  private signalManager?: SignalManager;
+  private dmService?: DMService;
+  private isAvailable: boolean = false;
+  private config: E2EIntegrationConfig;
+  private initPromise?: Promise<void>;
+
+  constructor(config: E2EIntegrationConfig) {
+    this.config = config;
+    this.checkAvailability();
+  }
+
+  /**
+   * Check if E2E module is available
+   */
+  private async checkAvailability(): Promise<void> {
+    try {
+      // Dynamically import to prevent hard dependency
+      const { SignalManager, DMService } = await import('../index');
+      
+      this.isAvailable = true;
+      if (this.config.debug) {
+        console.log('E2E encryption module loaded successfully');
+      }
+    } catch (error) {
+      this.isAvailable = false;
+      console.warn('E2E encryption module not available, continuing without E2E', error);
+      
+      if (this.config.onE2EStatusChange) {
+        this.config.onE2EStatusChange(false);
+      }
+    }
+  }
+
+  /**
+   * Initialize E2E if available (non-blocking)
+   */
+  async initializeE2E(userId: string): Promise<boolean> {
+    if (!this.isAvailable) {
+      return false;
+    }
+
+    // Prevent multiple initializations
+    if (this.initPromise) {
+      await this.initPromise;
+      return this.signalManager !== undefined;
+    }
+
+    this.initPromise = this.performInitialization(userId);
+    
+    try {
+      await this.initPromise;
+      return true;
+    } catch (error) {
+      console.warn('E2E initialization failed, continuing without encryption', error);
+      return false;
+    }
+  }
+
+  private async performInitialization(userId: string): Promise<void> {
+    const token = this.config.getAuthToken();
+    if (!token) {
+      throw new Error('No auth token for E2E');
+    }
+
+    const { SignalManager, DMService } = await import('../index');
+    
+    // Initialize Signal Manager
+    this.signalManager = new SignalManager({
+      apiUrl: this.config.apiUrl || '/api/e2e',
+      authToken: token,
+      userId
+    });
+
+    await this.signalManager.initialize();
+
+    // Initialize DM Service
+    this.dmService = new DMService({
+      apiUrl: this.config.apiUrl || '/api/e2e',
+      getAuthToken: this.config.getAuthToken,
+      signalManager: this.signalManager
+    });
+
+    if (this.config.onE2EStatusChange) {
+      this.config.onE2EStatusChange(true);
+    }
+
+    if (this.config.debug) {
+      console.log('E2E encryption initialized for user:', userId);
+    }
+  }
+
+  /**
+   * Encrypt message if E2E is available, otherwise return plaintext
+   */
+  async encryptMessage(
+    recipientId: string,
+    message: string,
+    isGroup: boolean = false
+  ): Promise<MessageEnvelope> {
+    if (!this.signalManager) {
+      // E2E not available, send unencrypted
+      return {
+        content: message,
+        encrypted: false
+      };
+    }
+
+    try {
+      if (isGroup) {
+        const groupManager = this.signalManager.getGroupManager();
+        const encrypted = await groupManager.encryptMessage(recipientId, message);
+        return {
+          content: encrypted,
+          encrypted: true
+        };
+      } else {
+        const encrypted = await this.signalManager.encryptMessage(recipientId, message);
+        return {
+          content: JSON.stringify(encrypted),
+          encrypted: true,
+          encryptionData: {
+            type: encrypted.type,
+            deviceId: encrypted.deviceId
+          }
+        };
+      }
+    } catch (error) {
+      console.warn('Encryption failed, sending unencrypted:', error);
+      return {
+        content: message,
+        encrypted: false
+      };
+    }
+  }
+
+  /**
+   * Decrypt message if E2E is available and message is encrypted
+   */
+  async decryptMessage(
+    senderId: string,
+    envelope: MessageEnvelope,
+    isGroup: boolean = false
+  ): Promise<string> {
+    // If not encrypted or E2E not available, return as-is
+    if (!envelope.encrypted || !this.signalManager) {
+      return envelope.content;
+    }
+
+    try {
+      if (isGroup) {
+        const groupManager = this.signalManager.getGroupManager();
+        // Assuming group message format
+        const parsed = JSON.parse(envelope.content);
+        return await groupManager.decryptMessage(
+          parsed.groupId,
+          senderId,
+          parsed.message
+        );
+      } else {
+        const encryptedData = JSON.parse(envelope.content);
+        return await this.signalManager.decryptMessage(
+          senderId,
+          encryptedData.encrypted,
+          encryptedData.type
+        );
+      }
+    } catch (error) {
+      console.warn('Decryption failed, showing encrypted content:', error);
+      return envelope.content;
+    }
+  }
+
+  /**
+   * Initiate DM if E2E is available
+   */
+  async initiateDM(peerId: string): Promise<string | null> {
+    if (!this.dmService) {
+      console.warn('DM service not available');
+      return null;
+    }
+
+    try {
+      const dmSpace = await this.dmService.initiateDM(peerId);
+      return dmSpace.spaceId;
+    } catch (error) {
+      console.error('Failed to initiate E2E DM:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if E2E is ready
+   */
+  isE2EReady(): boolean {
+    return this.isAvailable && this.signalManager !== undefined;
+  }
+
+  /**
+   * Get E2E status
+   */
+  getStatus(): {
+    available: boolean;
+    initialized: boolean;
+    hasSession: boolean;
+  } {
+    return {
+      available: this.isAvailable,
+      initialized: this.signalManager !== undefined,
+      hasSession: false // Would need to check specific session
+    };
+  }
+
+  /**
+   * Cleanup E2E resources
+   */
+  async cleanup(): Promise<void> {
+    if (this.signalManager) {
+      await this.signalManager.cleanup();
+      this.signalManager = undefined;
+      this.dmService = undefined;
+    }
+  }
+}
+
+/**
+ * WebSocket message interceptor for automatic E2E handling
+ */
+export class E2EWebSocketInterceptor {
+  private e2e: E2EIntegration;
+
+  constructor(e2e: E2EIntegration) {
+    this.e2e = e2e;
+  }
+
+  /**
+   * Process outgoing message
+   */
+  async processOutgoing(
+    message: any,
+    recipientId?: string
+  ): Promise<any> {
+    // Only process text messages
+    if (message.type !== 'message' || !message.content || !recipientId) {
+      return message;
+    }
+
+    const envelope = await this.e2e.encryptMessage(
+      recipientId,
+      message.content,
+      message.isGroup
+    );
+
+    return {
+      ...message,
+      content: envelope.content,
+      encrypted: envelope.encrypted,
+      encryptionData: envelope.encryptionData
+    };
+  }
+
+  /**
+   * Process incoming message
+   */
+  async processIncoming(
+    message: any,
+    senderId?: string
+  ): Promise<any> {
+    // Only process encrypted messages
+    if (!message.encrypted || !message.content || !senderId) {
+      return message;
+    }
+
+    const decrypted = await this.e2e.decryptMessage(
+      senderId,
+      {
+        content: message.content,
+        encrypted: message.encrypted,
+        encryptionData: message.encryptionData
+      },
+      message.isGroup
+    );
+
+    return {
+      ...message,
+      content: decrypted,
+      wasEncrypted: true
+    };
+  }
+}
+
+/**
+ * Factory function for safe E2E integration
+ */
+export function createE2EIntegration(config: E2EIntegrationConfig): E2EIntegration {
+  return new E2EIntegration(config);
+}

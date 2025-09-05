@@ -1,76 +1,115 @@
-// Copyright (C) 2024 William Theesfeld <william@theesfeld.net>
+// Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import * as SignalClient from '@signalapp/libsignal-client';
+import {
+  PrivateKey,
+  PublicKey,
+  PreKeyBundle,
+  PreKeySignalMessage,
+  SignalMessage,
+  CiphertextMessage,
+  CiphertextMessageType,
+  ProtocolAddress,
+  SessionRecord,
+  processPreKeyBundle,
+  signalEncrypt,
+  signalDecryptPreKey,
+  signalDecrypt
+} from '@signalapp/libsignal-client';
+
+import {
+  SessionStoreImpl,
+  IdentityKeyStoreImpl,
+  PreKeyStoreImpl,
+  SignedPreKeyStoreImpl
+} from '../stores';
 
 export interface SignalKeys {
-  identityKeyPair: SignalClient.PrivateKey;
+  identityKeyPair: { privateKey: PrivateKey; publicKey: PublicKey };
   registrationId: number;
   signedPreKey: {
     keyId: number;
-    keyPair: SignalClient.PrivateKey;
+    keyPair: { privateKey: PrivateKey; publicKey: PublicKey };
     signature: Uint8Array;
   };
   oneTimePreKeys: Array<{
     keyId: number;
-    keyPair: SignalClient.PrivateKey;
+    keyPair: { privateKey: PrivateKey; publicKey: PublicKey };
   }>;
 }
 
 export class SignalProtocol {
-  private sessionStore: Map<string, SignalClient.SessionRecord>;
-  private identityStore: Map<string, SignalClient.PublicKey>;
-  private preKeyStore: Map<number, SignalClient.PrivateKey>;
-  private signedPreKeyStore: Map<number, SignalClient.PrivateKey>;
+  private sessionStore: SessionStoreImpl;
+  private identityStore: IdentityKeyStoreImpl;
+  private preKeyStore: PreKeyStoreImpl;
+  private signedPreKeyStore: SignedPreKeyStoreImpl;
+  private initialized: boolean = false;
 
   constructor() {
-    this.sessionStore = new Map();
-    this.identityStore = new Map();
-    this.preKeyStore = new Map();
-    this.signedPreKeyStore = new Map();
+    this.sessionStore = new SessionStoreImpl();
+    this.identityStore = new IdentityKeyStoreImpl();
+    this.preKeyStore = new PreKeyStoreImpl();
+    this.signedPreKeyStore = new SignedPreKeyStoreImpl();
   }
 
-  async generateIdentityKeyPair(): Promise<SignalClient.PrivateKey> {
-    return SignalClient.PrivateKey.generate();
+  async initialize(): Promise<void> {
+    if (this.initialized) return;
+
+    await Promise.all([
+      this.sessionStore.init(),
+      this.identityStore.init(),
+      this.preKeyStore.init(),
+      this.signedPreKeyStore.init()
+    ]);
+
+    this.initialized = true;
+  }
+
+  async generateIdentityKeyPair(): Promise<{ privateKey: PrivateKey; publicKey: PublicKey }> {
+    const privateKey = PrivateKey.generate();
+    const publicKey = privateKey.getPublicKey();
+    return { privateKey, publicKey };
   }
 
   async generateRegistrationId(): Promise<number> {
+    // Generate a random registration ID between 1 and 16383
     return Math.floor(Math.random() * 16383) + 1;
   }
 
   async generateSignedPreKey(
-    identityKey: SignalClient.PrivateKey,
+    identityKey: PrivateKey,
     keyId: number
   ): Promise<{
     keyId: number;
-    keyPair: SignalClient.PrivateKey;
+    keyPair: { privateKey: PrivateKey; publicKey: PublicKey };
     signature: Uint8Array;
   }> {
-    const keyPair = await SignalClient.PrivateKey.generate();
-    const publicKey = keyPair.getPublicKey();
+    const privateKey = PrivateKey.generate();
+    const publicKey = privateKey.getPublicKey();
     const signature = identityKey.sign(publicKey.serialize());
 
     return {
       keyId,
-      keyPair,
+      keyPair: { privateKey, publicKey },
       signature
     };
   }
 
   async generatePreKeys(start: number, count: number): Promise<Array<{
     keyId: number;
-    keyPair: SignalClient.PrivateKey;
+    keyPair: { privateKey: PrivateKey; publicKey: PublicKey };
   }>> {
     const preKeys = [];
     for (let i = 0; i < count; i++) {
-      const keyPair = await SignalClient.PrivateKey.generate();
+      const privateKey = PrivateKey.generate();
+      const publicKey = privateKey.getPublicKey();
       preKeys.push({
         keyId: start + i,
-        keyPair
+        keyPair: { privateKey, publicKey }
       });
     }
     return preKeys;
@@ -79,8 +118,27 @@ export class SignalProtocol {
   async generateInitialKeys(): Promise<SignalKeys> {
     const identityKeyPair = await this.generateIdentityKeyPair();
     const registrationId = await this.generateRegistrationId();
-    const signedPreKey = await this.generateSignedPreKey(identityKeyPair, 1);
-    const oneTimePreKeys = await this.generatePreKeys(1, 100);
+    const signedPreKey = await this.generateSignedPreKey(identityKeyPair.privateKey, 1);
+    const oneTimePreKeys = await this.generatePreKeys(2, 100); // Start at 2, generate 100
+
+    // Store our identity
+    await this.identityStore.saveIdentityKeyPair(
+      identityKeyPair.privateKey,
+      identityKeyPair.publicKey
+    );
+    await this.identityStore.saveLocalRegistrationId(registrationId);
+
+    // Store signed prekey
+    await this.signedPreKeyStore.saveSignedPreKey(
+      signedPreKey.keyId,
+      signedPreKey.keyPair.privateKey,
+      signedPreKey.signature
+    );
+
+    // Store one-time prekeys
+    for (const preKey of oneTimePreKeys) {
+      await this.preKeyStore.savePreKey(preKey.keyId, preKey.keyPair.privateKey);
+    }
 
     return {
       identityKeyPair,
@@ -92,6 +150,7 @@ export class SignalProtocol {
 
   async processPreKeyBundle(
     userId: string,
+    deviceId: number,
     bundle: {
       registrationId: number;
       identityKey: Uint8Array;
@@ -100,17 +159,15 @@ export class SignalProtocol {
       signedPreKeySignature: Uint8Array;
       preKeyId?: number;
       preKeyPublic?: Uint8Array;
-    },
-    ourIdentityKey: SignalClient.PrivateKey,
-    ourRegistrationId: number
+    }
   ): Promise<void> {
-    const theirIdentityKey = SignalClient.PublicKey.deserialize(bundle.identityKey);
-    const theirSignedPreKey = SignalClient.PublicKey.deserialize(bundle.signedPreKeyPublic);
+    const theirIdentityKey = PublicKey.deserialize(Buffer.from(bundle.identityKey));
+    const theirSignedPreKey = PublicKey.deserialize(Buffer.from(bundle.signedPreKeyPublic));
     
     // Verify signature
     const verified = theirIdentityKey.verify(
-      bundle.signedPreKeyPublic,
-      bundle.signedPreKeySignature
+      Buffer.from(bundle.signedPreKeyPublic),
+      Buffer.from(bundle.signedPreKeySignature)
     );
     
     if (!verified) {
@@ -118,23 +175,23 @@ export class SignalProtocol {
     }
 
     const theirPreKey = bundle.preKeyPublic 
-      ? SignalClient.PublicKey.deserialize(bundle.preKeyPublic)
+      ? PublicKey.deserialize(Buffer.from(bundle.preKeyPublic))
       : undefined;
 
-    const preKeyBundle = SignalClient.PreKeyBundle.new(
+    const preKeyBundle = PreKeyBundle.new(
       bundle.registrationId,
-      1, // deviceId
+      deviceId,
       bundle.preKeyId,
       theirPreKey,
       bundle.signedPreKeyId,
       theirSignedPreKey,
-      bundle.signedPreKeySignature,
+      Buffer.from(bundle.signedPreKeySignature),
       theirIdentityKey
     );
 
-    const address = SignalClient.ProtocolAddress.new(userId, 1);
+    const address = ProtocolAddress.new(userId, deviceId);
     
-    await SignalClient.processPreKeyBundle(
+    await processPreKeyBundle(
       preKeyBundle,
       address,
       this.sessionStore,
@@ -144,50 +201,146 @@ export class SignalProtocol {
 
   async encryptMessage(
     userId: string,
+    deviceId: number,
     message: Uint8Array
-  ): Promise<SignalClient.CiphertextMessage> {
-    const address = SignalClient.ProtocolAddress.new(userId, 1);
-    const sessionRecord = this.sessionStore.get(userId);
+  ): Promise<CiphertextMessage> {
+    const address = ProtocolAddress.new(userId, deviceId);
+    const sessionRecord = await this.sessionStore.getSession(address);
     
     if (!sessionRecord) {
       throw new Error('No session established');
     }
 
-    return await SignalClient.signalEncrypt(
+    const ciphertext = await signalEncrypt(
       Buffer.from(message),
       address,
       sessionRecord,
       this.identityStore
     );
+
+    // Save updated session
+    await this.sessionStore.saveSession(address, sessionRecord);
+
+    return ciphertext;
   }
 
   async decryptMessage(
     userId: string,
-    ciphertext: SignalClient.CiphertextMessage
+    deviceId: number,
+    ciphertext: Uint8Array,
+    type: CiphertextMessageType
   ): Promise<Uint8Array> {
-    const address = SignalClient.ProtocolAddress.new(userId, 1);
-    const sessionRecord = this.sessionStore.get(userId);
+    const address = ProtocolAddress.new(userId, deviceId);
+    let sessionRecord = await this.sessionStore.getSession(address);
     
-    if (!sessionRecord) {
-      throw new Error('No session established');
-    }
+    let plaintext: Buffer;
 
-    if (ciphertext.type() === SignalClient.CiphertextMessageType.PreKey) {
-      return await SignalClient.signalDecryptPreKey(
-        ciphertext as SignalClient.PreKeySignalMessage,
+    if (type === CiphertextMessageType.PreKey) {
+      // This is a PreKeySignalMessage
+      const preKeyMessage = PreKeySignalMessage.deserialize(Buffer.from(ciphertext));
+      
+      // Create session if it doesn't exist
+      if (!sessionRecord) {
+        sessionRecord = SessionRecord.new();
+      }
+
+      plaintext = await signalDecryptPreKey(
+        preKeyMessage,
         address,
         sessionRecord,
         this.identityStore,
         this.preKeyStore,
         this.signedPreKeyStore
       );
-    } else {
-      return await SignalClient.signalDecrypt(
-        ciphertext as SignalClient.SignalMessage,
+
+      // Remove used one-time prekey
+      const preKeyId = preKeyMessage.preKeyId();
+      if (preKeyId !== null) {
+        await this.preKeyStore.removePreKey(preKeyId);
+      }
+    } else if (type === CiphertextMessageType.Whisper) {
+      // This is a regular SignalMessage
+      if (!sessionRecord) {
+        throw new Error('No session established');
+      }
+
+      const signalMessage = SignalMessage.deserialize(Buffer.from(ciphertext));
+      
+      plaintext = await signalDecrypt(
+        signalMessage,
         address,
         sessionRecord,
         this.identityStore
       );
+    } else {
+      throw new Error(`Unsupported message type: ${type}`);
     }
+
+    // Save updated session
+    await this.sessionStore.saveSession(address, sessionRecord);
+
+    return new Uint8Array(plaintext);
+  }
+
+  async hasSession(userId: string, deviceId: number): Promise<boolean> {
+    const address = ProtocolAddress.new(userId, deviceId);
+    const session = await this.sessionStore.getSession(address);
+    return session !== null;
+  }
+
+  async getRegistrationId(): Promise<number> {
+    return await this.identityStore.getLocalRegistrationId();
+  }
+
+  async getIdentityKeyPair(): Promise<{ privateKey: PrivateKey; publicKey: PublicKey }> {
+    return await this.identityStore.getIdentityKeyPair();
+  }
+
+  async getUnusedPreKeyCount(): Promise<number> {
+    return await this.preKeyStore.countPreKeys();
+  }
+
+  async replenishPreKeys(start: number, count: number): Promise<Array<{
+    keyId: number;
+    publicKey: Uint8Array;
+  }>> {
+    const identityKeyPair = await this.getIdentityKeyPair();
+    const newPreKeys = await this.generatePreKeys(start, count);
+    
+    const publicKeys: Array<{ keyId: number; publicKey: Uint8Array }> = [];
+    
+    for (const preKey of newPreKeys) {
+      await this.preKeyStore.savePreKey(preKey.keyId, preKey.keyPair.privateKey);
+      publicKeys.push({
+        keyId: preKey.keyId,
+        publicKey: preKey.keyPair.publicKey.serialize()
+      });
+    }
+    
+    return publicKeys;
+  }
+
+  async rotateSignedPreKey(keyId: number): Promise<{
+    keyId: number;
+    publicKey: Uint8Array;
+    signature: Uint8Array;
+  }> {
+    const identityKeyPair = await this.getIdentityKeyPair();
+    const signedPreKey = await this.generateSignedPreKey(identityKeyPair.privateKey, keyId);
+    
+    await this.signedPreKeyStore.saveSignedPreKey(
+      signedPreKey.keyId,
+      signedPreKey.keyPair.privateKey,
+      signedPreKey.signature
+    );
+
+    // Clean up old signed prekeys (keep last 3)
+    await this.signedPreKeyStore.removeOldSignedPreKeys(3);
+
+    return {
+      keyId: signedPreKey.keyId,
+      publicKey: signedPreKey.keyPair.publicKey.serialize(),
+      signature: signedPreKey.signature
+    };
   }
 }

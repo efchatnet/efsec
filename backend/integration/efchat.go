@@ -1,4 +1,4 @@
-// Copyright (C) 2024 William Theesfeld <william@theesfeld.net>
+// Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -23,18 +23,30 @@ import (
 	"github.com/redis/go-redis/v9"
 	
 	"github.com/efchatnet/efsec/backend/handlers"
+	"github.com/efchatnet/efsec/backend/middleware"
 	"github.com/efchatnet/efsec/backend/storage/postgres"
 )
 
+// E2EIntegration provides E2E encryption functionality as a plugin for efchat
 type E2EIntegration struct {
 	store         *postgres.Store
 	keyHandler    *handlers.KeyHandler
 	groupHandler  *handlers.GroupHandler
+	jwtSecret     string
+	jwtIssuer     string
+}
+
+// Config holds configuration for the E2E integration
+type Config struct {
+	DB        *sql.DB
+	Redis     *redis.Client
+	JWTSecret string
+	JWTIssuer string
 }
 
 // NewE2EIntegration creates a new E2E integration that can be embedded into efchat
-func NewE2EIntegration(db *sql.DB, redis *redis.Client) (*E2EIntegration, error) {
-	store := postgres.NewStore(db, redis)
+func NewE2EIntegration(config *Config) (*E2EIntegration, error) {
+	store := postgres.NewStore(config.DB, config.Redis)
 	
 	// Run migrations
 	if err := store.Migrate(); err != nil {
@@ -45,29 +57,51 @@ func NewE2EIntegration(db *sql.DB, redis *redis.Client) (*E2EIntegration, error)
 		store:        store,
 		keyHandler:   handlers.NewKeyHandler(store),
 		groupHandler: handlers.NewGroupHandler(store),
+		jwtSecret:    config.JWTSecret,
+		jwtIssuer:    config.JWTIssuer,
 	}, nil
 }
 
 // RegisterRoutes adds E2E routes to an existing router
+// If authMiddleware is nil, it will use the built-in JWT validation
 func (e *E2EIntegration) RegisterRoutes(router *mux.Router, authMiddleware func(http.Handler) http.Handler) {
 	// Create subrouter for E2E endpoints
 	api := router.PathPrefix("/api/e2e").Subrouter()
 	
-	// Apply authentication middleware if provided
+	// Use provided auth middleware or create our own
 	if authMiddleware != nil {
 		api.Use(authMiddleware)
+	} else {
+		// Use our own JWT validation
+		api.Use(middleware.NewAuthMiddleware(e.jwtSecret, e.jwtIssuer))
 	}
 	
+	// Initialize space handler
+	spaceHandler := handlers.NewSpaceHandler(e.store)
+	
 	// Key management endpoints
-	api.HandleFunc("/keys", e.keyHandler.RegisterKeys).Methods("POST")
-	api.HandleFunc("/bundle/{userId}", e.keyHandler.GetPreKeyBundle).Methods("GET")
-	api.HandleFunc("/keys/replenish", e.keyHandler.ReplenishPreKeys).Methods("POST")
+	api.HandleFunc("/keys", e.keyHandler.RegisterKeys).Methods("POST", "OPTIONS")
+	api.HandleFunc("/bundle/{userId}", e.keyHandler.GetPreKeyBundle).Methods("GET", "OPTIONS")
+	api.HandleFunc("/keys/replenish", e.keyHandler.ReplenishPreKeys).Methods("POST", "OPTIONS")
+	api.HandleFunc("/keys/status", e.getKeyStatus).Methods("GET", "OPTIONS")
+	
+	// DM space endpoints
+	api.HandleFunc("/dm/initiate", spaceHandler.InitiateDM).Methods("POST", "OPTIONS")
+	api.HandleFunc("/dm/find", spaceHandler.FindDM).Methods("GET", "OPTIONS")
+	api.HandleFunc("/dm/list", spaceHandler.ListDMs).Methods("GET", "OPTIONS")
+	
+	// Space management endpoints
+	api.HandleFunc("/space/{spaceId}/type", spaceHandler.GetSpaceType).Methods("GET", "OPTIONS")
+	api.HandleFunc("/space/{spaceId}/enable-e2e", spaceHandler.EnableE2EForSpace).Methods("POST", "OPTIONS")
 	
 	// Group endpoints
-	api.HandleFunc("/group/create", e.groupHandler.CreateGroup).Methods("POST")
-	api.HandleFunc("/group/{groupId}/join", e.groupHandler.JoinGroup).Methods("POST")
-	api.HandleFunc("/group/{groupId}/keys", e.groupHandler.GetGroupKeys).Methods("GET")
-	api.HandleFunc("/group/{groupId}/message", e.groupHandler.SendGroupMessage).Methods("POST")
+	api.HandleFunc("/group/create", e.groupHandler.CreateGroup).Methods("POST", "OPTIONS")
+	api.HandleFunc("/group/create-space", spaceHandler.CreateE2EGroup).Methods("POST", "OPTIONS")
+	api.HandleFunc("/group/{groupId}/join", e.groupHandler.JoinGroup).Methods("POST", "OPTIONS")
+	api.HandleFunc("/group/{groupId}/keys", e.groupHandler.GetGroupKeys).Methods("GET", "OPTIONS")
+	api.HandleFunc("/group/{groupId}/message", e.groupHandler.SendGroupMessage).Methods("POST", "OPTIONS")
+	api.HandleFunc("/group/{groupId}/leave", e.leaveGroup).Methods("POST", "OPTIONS")
+	api.HandleFunc("/group/{groupId}/rekey", e.rekeyGroup).Methods("POST", "OPTIONS")
 }
 
 // GetStore returns the underlying storage implementation
@@ -82,4 +116,107 @@ func (e *E2EIntegration) CheckPreKeyCount(userID string, threshold int) (bool, e
 		return false, err
 	}
 	return count < threshold, nil
+}
+
+// getKeyStatus returns the current key status for a user
+func (e *E2EIntegration) getKeyStatus(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	count, err := e.store.GetUnusedPreKeyCount(userID)
+	if err != nil {
+		http.Error(w, "Failed to get key count", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"remaining_keys":` + string(rune(count)) + `}`))
+}
+
+// leaveGroup handles a user leaving a group
+func (e *E2EIntegration) leaveGroup(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	groupID := vars["groupId"]
+
+	if err := e.store.RemoveGroupMember(groupID, userID); err != nil {
+		http.Error(w, "Failed to leave group", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"left"}`))
+}
+
+// rekeyGroup initiates a key rotation for a group
+func (e *E2EIntegration) rekeyGroup(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	vars := mux.Vars(r)
+	groupID := vars["groupId"]
+
+	// Check if user is a member
+	members, err := e.store.GetGroupMembers(groupID)
+	if err != nil {
+		http.Error(w, "Group not found", http.StatusNotFound)
+		return
+	}
+
+	isMember := false
+	for _, member := range members {
+		if member == userID {
+			isMember = true
+			break
+		}
+	}
+
+	if !isMember {
+		http.Error(w, "Not a group member", http.StatusForbidden)
+		return
+	}
+
+	// Increment key version for the group
+	if err := e.store.IncrementKeyVersion(groupID); err != nil {
+		http.Error(w, "Failed to rotate keys", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"rekeyed"}`))
+}
+
+// ValidateSetup checks if the E2E module is properly configured
+func (e *E2EIntegration) ValidateSetup() error {
+	// Check database connection
+	if err := e.store.Migrate(); err != nil {
+		return err
+	}
+
+	// Validate JWT configuration
+	if e.jwtSecret == "" {
+		return &ValidationError{Message: "JWT secret is not configured"}
+	}
+
+	return nil
+}
+
+// ValidationError represents a configuration validation error
+type ValidationError struct {
+	Message string
+}
+
+func (e *ValidationError) Error() string {
+	return e.Message
 }

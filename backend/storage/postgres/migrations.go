@@ -1,4 +1,4 @@
-// Copyright (C) 2024 William Theesfeld <william@theesfeld.net>
+// Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -117,6 +117,46 @@ func (s *Store) Migrate() error {
 			last_used_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 			PRIMARY KEY (user_id, peer_id)
 		)`,
+
+		// E2E enabled spaces table
+		`CREATE TABLE IF NOT EXISTS e2e_spaces (
+			space_id VARCHAR(255) PRIMARY KEY,
+			space_type VARCHAR(20) NOT NULL CHECK (space_type IN ('dm', 'group')),
+			is_e2e_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+			created_by VARCHAR(255) NOT NULL,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			member_count INTEGER NOT NULL DEFAULT 2
+		)`,
+
+		// E2E space members table
+		`CREATE TABLE IF NOT EXISTS e2e_space_members (
+			space_id VARCHAR(255) NOT NULL,
+			user_id VARCHAR(255) NOT NULL,
+			joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			session_established BOOLEAN NOT NULL DEFAULT FALSE,
+			PRIMARY KEY (space_id, user_id),
+			FOREIGN KEY (space_id) REFERENCES e2e_spaces(space_id) ON DELETE CASCADE
+		)`,
+
+		// Index for finding user's E2E spaces
+		`CREATE INDEX IF NOT EXISTS idx_user_e2e_spaces 
+		ON e2e_space_members(user_id, space_id)`,
+
+		// DM spaces table (exactly 2 members)
+		`CREATE TABLE IF NOT EXISTS dm_spaces (
+			space_id VARCHAR(255) PRIMARY KEY,
+			user1_id VARCHAR(255) NOT NULL,
+			user2_id VARCHAR(255) NOT NULL,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			last_message_at TIMESTAMP,
+			CONSTRAINT unique_dm_pair UNIQUE (user1_id, user2_id),
+			CONSTRAINT ordered_users CHECK (user1_id < user2_id),
+			FOREIGN KEY (space_id) REFERENCES e2e_spaces(space_id) ON DELETE CASCADE
+		)`,
+
+		// Index for finding DMs between two users
+		`CREATE INDEX IF NOT EXISTS idx_dm_lookup 
+		ON dm_spaces(user1_id, user2_id)`,
 	}
 
 	for _, migration := range migrations {

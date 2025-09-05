@@ -1,4 +1,4 @@
-// Copyright (C) 2024 William Theesfeld <william@theesfeld.net>
+// Copyright (C) 2025 efchat.net <tj@efchat.net>
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -65,6 +65,20 @@ func main() {
 	keyHandler := handlers.NewKeyHandler(store)
 	groupHandler := handlers.NewGroupHandler(store)
 
+	// Get JWT configuration from environment
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET environment variable is required")
+	}
+
+	jwtIssuer := os.Getenv("JWT_ISSUER")
+	if jwtIssuer == "" {
+		jwtIssuer = "efchat"
+	}
+
+	// Create auth middleware
+	authMiddleware := middleware.NewAuthMiddleware(jwtSecret, jwtIssuer)
+
 	// Setup router
 	r := mux.NewRouter()
 	
@@ -73,7 +87,7 @@ func main() {
 	
 	// API routes
 	api := r.PathPrefix("/api/e2e").Subrouter()
-	api.Use(middleware.Authenticate)
+	api.Use(authMiddleware)
 
 	// Key management endpoints
 	api.HandleFunc("/keys", keyHandler.RegisterKeys).Methods("POST")
@@ -86,8 +100,15 @@ func main() {
 	api.HandleFunc("/group/{groupId}/keys", groupHandler.GetGroupKeys).Methods("GET")
 	api.HandleFunc("/group/{groupId}/message", groupHandler.SendGroupMessage).Methods("POST")
 
-	// Health check
+	// Health check (no auth required)
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		// Check database connection
+		if err := db.Ping(); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			w.Write([]byte("Database unavailable"))
+			return
+		}
+		
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	}).Methods("GET")
@@ -98,6 +119,8 @@ func main() {
 	}
 
 	log.Printf("E2E server starting on port %s", port)
+	log.Printf("JWT Issuer: %s", jwtIssuer)
+	
 	if err := http.ListenAndServe(":"+port, r); err != nil {
 		log.Fatalf("Server failed to start: %v", err)
 	}

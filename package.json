@@ -7,7 +7,8 @@
   "scripts": {
     "build": "cd client && npm run build",
     "test": "cd client && npm test",
-    "verify": "make verify"
+    "verify": "make verify",
+    "prepare": "cd client && npm install && npm run build"
   },
   "repository": {
     "type": "git",
@@ -19,7 +20,7 @@
     "end-to-end",
     "encryption"
   ],
-  "author": "William Theesfeld <william@theesfeld.net>",
+  "author": "William Theesfeld <tj@efchat.net>",
   "license": "GPL-3.0-or-later",
   "files": [
     "client/dist/**/*",

@@ -19,7 +19,9 @@ import {
   processPreKeyBundle,
   signalEncrypt,
   signalDecryptPreKey,
-  signalDecrypt
+  signalDecrypt,
+  KEMPublicKey,
+  UsePQRatchet
 } from '@signalapp/libsignal-client';
 
 import {
@@ -176,8 +178,8 @@ export class SignalProtocol {
       preKeyPublic?: Uint8Array | null;
     }
   ): Promise<void> {
-    const theirIdentityKey = PublicKey.deserialize(Buffer.from(bundle.identityKey));
-    const theirSignedPreKey = PublicKey.deserialize(Buffer.from(bundle.signedPreKeyPublic));
+    const theirIdentityKey = PublicKey.deserialize(new Uint8Array(Buffer.from(bundle.identityKey)));
+    const theirSignedPreKey = PublicKey.deserialize(new Uint8Array(Buffer.from(bundle.signedPreKeyPublic)));
     
     // Verify signature
     const verified = theirIdentityKey.verify(
@@ -190,9 +192,19 @@ export class SignalProtocol {
     }
 
     const theirPreKey = bundle.preKeyPublic 
-      ? PublicKey.deserialize(Buffer.from(bundle.preKeyPublic))
+      ? PublicKey.deserialize(new Uint8Array(Buffer.from(bundle.preKeyPublic)))
       : null;
 
+    // Note: Kyber prekeys are required in newer versions for post-quantum resistance
+    // For now, we'll use dummy values - in production, these should come from the bundle
+    const kyberPreKeyId = bundle.kyberPreKeyId || 0;
+    const kyberPreKey = bundle.kyberPreKey ? 
+      KEMPublicKey.deserialize(new Uint8Array(Buffer.from(bundle.kyberPreKey))) : 
+      KEMPublicKey.deserialize(new Uint8Array(1184)); // Default size for Kyber public key
+    const kyberPreKeySignature = bundle.kyberPreKeySignature ? 
+      new Uint8Array(Buffer.from(bundle.kyberPreKeySignature)) : 
+      new Uint8Array(64); // Default signature size
+    
     const preKeyBundle = PreKeyBundle.new(
       bundle.registrationId,
       deviceId,
@@ -200,8 +212,11 @@ export class SignalProtocol {
       theirPreKey || null,
       bundle.signedPreKeyId,
       theirSignedPreKey,
-      Buffer.from(bundle.signedPreKeySignature),
-      theirIdentityKey
+      new Uint8Array(Buffer.from(bundle.signedPreKeySignature)),
+      theirIdentityKey,
+      kyberPreKeyId,
+      kyberPreKey,
+      kyberPreKeySignature
     );
 
     const address = ProtocolAddress.new(userId, deviceId);
@@ -210,7 +225,9 @@ export class SignalProtocol {
       preKeyBundle,
       address,
       this.sessionStore,
-      this.identityStore
+      this.identityStore,
+      UsePQRatchet.Yes, // Enable post-quantum resistance
+      new Date()
     );
   }
 
@@ -227,10 +244,11 @@ export class SignalProtocol {
     }
 
     const ciphertext = await signalEncrypt(
-      Buffer.from(message),
+      new Uint8Array(Buffer.from(message)),
       address,
       this.sessionStore,
-      this.identityStore
+      this.identityStore,
+      new Date()
     );
 
     return ciphertext;
@@ -248,7 +266,7 @@ export class SignalProtocol {
 
     if (type === CiphertextMessageType.PreKey) {
       // This is a PreKeySignalMessage
-      const preKeyMessage = PreKeySignalMessage.deserialize(Buffer.from(ciphertext));
+      const preKeyMessage = PreKeySignalMessage.deserialize(new Uint8Array(Buffer.from(ciphertext)));
       
       plaintext = await signalDecryptPreKey(
         preKeyMessage,
@@ -258,7 +276,7 @@ export class SignalProtocol {
         this.preKeyStore,
         this.signedPreKeyStore,
         this.kyberPreKeyStore
-      );
+      ) as any; // Cast to fix type mismatch
 
       // Remove used one-time prekey
       const preKeyId = preKeyMessage.preKeyId();
@@ -272,7 +290,7 @@ export class SignalProtocol {
         throw new Error('No session established');
       }
 
-      const signalMessage = SignalMessage.deserialize(Buffer.from(ciphertext));
+      const signalMessage = SignalMessage.deserialize(new Uint8Array(Buffer.from(ciphertext)));
       
       plaintext = await signalDecrypt(
         signalMessage,

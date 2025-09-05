@@ -137,7 +137,7 @@ export class IdentityKeyStoreImpl extends IdentityKeyStore {
     return this.registrationId;
   }
 
-  async saveIdentity(address: ProtocolAddress, key: PublicKey): Promise<boolean> {
+  async saveIdentity(address: ProtocolAddress, key: PublicKey): Promise<IdentityKeyStore.IdentityChange> {
     const id = this.getIdentityId(address);
     const serialized = key.serialize();
     
@@ -163,7 +163,14 @@ export class IdentityKeyStoreImpl extends IdentityKeyStore {
       });
     }
     
-    return changed;
+    // Return the appropriate IdentityChange value
+    if (!existing) {
+      return IdentityKeyStore.IdentityChange.NewIdentity;
+    } else if (changed) {
+      return IdentityKeyStore.IdentityChange.IdentityChanged;
+    } else {
+      return IdentityKeyStore.IdentityChange.NoChange;
+    }
   }
 
   async isTrustedIdentity(

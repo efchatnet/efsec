@@ -67,11 +67,10 @@ func (s *Store) Migrate() error {
 			FOREIGN KEY (group_id) REFERENCES groups(group_id) ON DELETE CASCADE
 		)`,
 
-		// Sender keys table
+		// Sender keys table (stores ONLY public keys - chain keys stay on client!)
 		`CREATE TABLE IF NOT EXISTS sender_keys (
 			group_id VARCHAR(255) NOT NULL,
 			user_id VARCHAR(255) NOT NULL,
-			chain_key BYTEA NOT NULL,
 			public_signature_key BYTEA NOT NULL,
 			key_version INTEGER NOT NULL DEFAULT 1,
 			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,

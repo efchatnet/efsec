@@ -119,18 +119,18 @@ func (s *Store) GetGroupMembers(groupID string) ([]string, error) {
 
 func (s *Store) SaveSenderKey(key models.SenderKey) error {
 	_, err := s.db.Exec(`
-		INSERT INTO sender_keys (group_id, user_id, chain_key, public_signature_key, key_version, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO sender_keys (group_id, user_id, public_signature_key, key_version, created_at)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (group_id, user_id) DO UPDATE
-		SET chain_key = $3, public_signature_key = $4, key_version = $5, created_at = $6`,
-		key.GroupID, key.UserID, key.ChainKey, key.PublicSignatureKey,
+		SET public_signature_key = $3, key_version = $4, created_at = $5`,
+		key.GroupID, key.UserID, key.PublicSignatureKey,
 		key.KeyVersion, time.Now())
 	return err
 }
 
 func (s *Store) GetGroupSenderKeys(groupID string) ([]models.SenderKey, error) {
 	rows, err := s.db.Query(`
-		SELECT group_id, user_id, chain_key, public_signature_key, key_version, created_at
+		SELECT group_id, user_id, public_signature_key, key_version, created_at
 		FROM sender_keys
 		WHERE group_id = $1`,
 		groupID)
@@ -142,7 +142,7 @@ func (s *Store) GetGroupSenderKeys(groupID string) ([]models.SenderKey, error) {
 	var keys []models.SenderKey
 	for rows.Next() {
 		var key models.SenderKey
-		if err := rows.Scan(&key.GroupID, &key.UserID, &key.ChainKey,
+		if err := rows.Scan(&key.GroupID, &key.UserID,
 			&key.PublicSignatureKey, &key.KeyVersion, &key.CreatedAt); err != nil {
 			return nil, err
 		}

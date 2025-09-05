@@ -19,10 +19,10 @@ import (
 	"time"
 )
 
+// SenderKey stores ONLY public information - chain keys remain on client!
 type SenderKey struct {
 	GroupID           string    `json:"group_id" db:"group_id"`
 	UserID            string    `json:"user_id" db:"user_id"`
-	ChainKey          []byte    `json:"chain_key" db:"chain_key"`
 	PublicSignatureKey []byte   `json:"public_signature_key" db:"public_signature_key"`
 	KeyVersion        int       `json:"key_version" db:"key_version"`
 	CreatedAt         time.Time `json:"created_at" db:"created_at"`

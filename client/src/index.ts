@@ -192,7 +192,7 @@ export class EfSecClient {
       keyVersion: senderKey.keyVersion
     });
 
-    // Share sender key with group
+    // Share ONLY public signature key with group (chain key stays local!)
     await fetch(`${this.apiUrl}/api/e2e/group/${groupId}/join`, {
       method: 'POST',
       headers: {
@@ -200,7 +200,7 @@ export class EfSecClient {
         'Authorization': `Bearer ${this.authToken}`
       },
       body: JSON.stringify({
-        chain_key: Array.from(senderKey.chainKey),
+        // NEVER send chain_key - it's a secret!
         public_signature_key: Array.from(senderKey.signatureKeyPair.publicKey),
         key_version: senderKey.keyVersion
       })

@@ -17,7 +17,6 @@ package postgres
 
 import (
 	"database/sql"
-	"time"
 
 	"github.com/efchatnet/efsec/backend/models"
 )

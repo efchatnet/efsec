@@ -94,19 +94,23 @@ func (s *Store) Migrate() error {
 		`CREATE INDEX IF NOT EXISTS idx_group_messages 
 		ON encrypted_group_messages(group_id, created_at DESC)`,
 
-		// Encrypted DM messages table
-		`CREATE TABLE IF NOT EXISTS encrypted_dm_messages (
+		// Encrypted DMs table (for both messages and key distribution)
+		`CREATE TABLE IF NOT EXISTS encrypted_dms (
 			message_id VARCHAR(255) PRIMARY KEY,
 			sender_id VARCHAR(255) NOT NULL,
 			recipient_id VARCHAR(255) NOT NULL,
 			ciphertext BYTEA NOT NULL,
-			message_type INTEGER NOT NULL,
-			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+			message_type VARCHAR(50) NOT NULL DEFAULT 'message',
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			read_at TIMESTAMP
 		)`,
 
-		// Create index for DM retrieval
-		`CREATE INDEX IF NOT EXISTS idx_dm_messages 
-		ON encrypted_dm_messages(sender_id, recipient_id, created_at DESC)`,
+		// Create indexes for DM retrieval
+		`CREATE INDEX IF NOT EXISTS idx_dm_recipient 
+		ON encrypted_dms(recipient_id, created_at DESC)`,
+		
+		`CREATE INDEX IF NOT EXISTS idx_dm_conversation 
+		ON encrypted_dms(sender_id, recipient_id, created_at DESC)`,
 
 		// Session state table (for tracking active sessions)
 		`CREATE TABLE IF NOT EXISTS sessions (

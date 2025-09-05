@@ -64,6 +64,7 @@ func main() {
 	// Initialize handlers
 	keyHandler := handlers.NewKeyHandler(store)
 	groupHandler := handlers.NewGroupHandler(store)
+	dmHandler := handlers.NewDMHandler(store)
 
 	// Get JWT configuration from environment
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -97,8 +98,16 @@ func main() {
 	// Group endpoints
 	api.HandleFunc("/group/create", groupHandler.CreateGroup).Methods("POST")
 	api.HandleFunc("/group/{groupId}/join", groupHandler.JoinGroup).Methods("POST")
-	api.HandleFunc("/group/{groupId}/keys", groupHandler.GetGroupKeys).Methods("GET")
+	api.HandleFunc("/group/{groupId}/leave", groupHandler.LeaveGroup).Methods("POST")
+	api.HandleFunc("/group/{groupId}/members", groupHandler.GetGroupMembers).Methods("GET")
 	api.HandleFunc("/group/{groupId}/message", groupHandler.SendGroupMessage).Methods("POST")
+
+	// DM endpoints (for encrypted direct messages and key distribution)
+	api.HandleFunc("/dm/send", dmHandler.SendDM).Methods("POST")
+	api.HandleFunc("/dm/messages", dmHandler.GetDMs).Methods("GET")
+	api.HandleFunc("/dm/messages/{userId}", dmHandler.GetDMsWith).Methods("GET")
+	api.HandleFunc("/dm/message/{messageId}/read", dmHandler.MarkDMRead).Methods("POST")
+	api.HandleFunc("/dm/message/{messageId}", dmHandler.DeleteDM).Methods("DELETE")
 
 	// Health check (no auth required)
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

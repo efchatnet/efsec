@@ -57,8 +57,17 @@ type SpaceStore interface {
 	SessionExists(userID, peerID string) (bool, error)
 }
 
+type DMStore interface {
+	SaveDM(dm models.EncryptedDM) error
+	GetDMsForUser(userID string, messageType string, limit int) ([]models.EncryptedDM, error)
+	GetDMsBetweenUsers(userID1, userID2 string, limit int) ([]models.EncryptedDM, error)
+	MarkDMAsRead(messageID, userID string) error
+	DeleteDMForUser(messageID, userID string) error
+}
+
 type Store interface {
 	KeyStore
 	GroupStore
 	SpaceStore
+	DMStore
 }

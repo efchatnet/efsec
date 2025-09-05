@@ -6,14 +6,14 @@
 // (at your option) any later version.
 
 import { SignalProtocol, SignalKeys } from './protocol/signal';
-import { SenderKeysProtocol, SenderKey, GroupSession } from './protocol/senderkeys';
+import { GroupProtocol } from './protocol/groups';
+import { KeyDistributionService } from './services/KeyDistributionService';
 import { E2EStorage } from './storage/indexeddb';
 
 // Core Protocol exports
 export * from './protocol/signal';
-export * from './protocol/senderkeys';
-export * from './protocol/SignalManager';
 export * from './protocol/groups';
+export * from './protocol/SignalManager';
 
 // Storage exports
 export * from './storage/indexeddb';
@@ -21,24 +21,19 @@ export * from './stores';
 
 // Service exports
 export * from './services/DMService';
-
-// React Component exports
-export * from './components/E2EStatusIndicator';
-export * from './components/E2ELockIcon';
-export * from './components/DMInitiator';
-
-// React Hook exports
-export * from './hooks/useE2EMessaging';
+export * from './services/KeyDistributionService';
 
 export interface E2EClient {
   signal: SignalProtocol;
-  senderKeys: SenderKeysProtocol;
+  groups: GroupProtocol;
   storage: E2EStorage;
+  keyDistribution: KeyDistributionService;
 }
 
 export class EfSecClient {
   private signal: SignalProtocol;
-  private senderKeys: SenderKeysProtocol;
+  private groups: GroupProtocol;
+  private keyDistribution: KeyDistributionService;
   private storage: E2EStorage;
   private apiUrl: string;
   private authToken?: string;
@@ -46,13 +41,27 @@ export class EfSecClient {
   constructor(apiUrl: string) {
     this.apiUrl = apiUrl;
     this.signal = new SignalProtocol();
-    this.senderKeys = new SenderKeysProtocol();
+    this.groups = new GroupProtocol(this.signal);
     this.storage = new E2EStorage();
+    this.keyDistribution = new KeyDistributionService(
+      this.signal,
+      this.groups,
+      apiUrl
+    );
   }
 
   async init(authToken?: string): Promise<void> {
     this.authToken = authToken;
+    this.keyDistribution = new KeyDistributionService(
+      this.signal,
+      this.groups,
+      this.apiUrl,
+      authToken
+    );
+    
     await this.storage.init();
+    await this.signal.initialize();
+    await this.groups.initialize();
     
     // Load existing keys if available
     const storedKeys = await this.storage.getIdentityKeys();
@@ -160,18 +169,11 @@ export class EfSecClient {
   }
 
   async createGroup(groupId: string): Promise<void> {
-    const senderKey = await this.senderKeys.createGroupSession(groupId);
+    // Create group and get our SenderKeyDistributionMessage
+    const distributionMessage = await this.groups.createGroup(groupId);
     
-    // Save sender key locally
-    await this.storage.saveSenderKey({
-      groupId,
-      chainKey: senderKey.chainKey,
-      signatureKeyPair: senderKey.signatureKeyPair,
-      keyVersion: senderKey.keyVersion
-    });
-
-    // Register group with backend
-    await fetch(`${this.apiUrl}/api/e2e/group/create`, {
+    // Register group with backend (server only tracks membership)
+    const response = await fetch(`${this.apiUrl}/api/e2e/group/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -179,113 +181,92 @@ export class EfSecClient {
       },
       body: JSON.stringify({ group_id: groupId })
     });
+
+    if (!response.ok) {
+      throw new Error('Failed to create group on server');
+    }
+    
+    // Get initial members and distribute our keys to them
+    await this.keyDistribution.distributeGroupKeys(groupId, distributionMessage);
   }
 
   async joinGroup(groupId: string): Promise<void> {
-    const senderKey = await this.senderKeys.createGroupSession(groupId);
+    // Create our SenderKeyDistributionMessage for this group
+    const distributionMessage = await this.groups.createGroup(groupId);
     
-    // Save sender key locally
-    await this.storage.saveSenderKey({
-      groupId,
-      chainKey: senderKey.chainKey,
-      signatureKeyPair: senderKey.signatureKeyPair,
-      keyVersion: senderKey.keyVersion
-    });
-
-    // Share ONLY public signature key with group (chain key stays local!)
-    await fetch(`${this.apiUrl}/api/e2e/group/${groupId}/join`, {
+    // Register with backend (server only tracks membership)
+    const response = await fetch(`${this.apiUrl}/api/e2e/group/${groupId}/join`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${this.authToken}`
       },
       body: JSON.stringify({
-        // NEVER send chain_key - it's a secret!
-        public_signature_key: Array.from(senderKey.signatureKeyPair.publicKey),
-        key_version: senderKey.keyVersion
+        // Server only needs to know we joined, no keys!
       })
     });
 
-    // Fetch other members' sender keys
-    await this.fetchGroupKeys(groupId);
-  }
-
-  private async fetchGroupKeys(groupId: string): Promise<void> {
-    const response = await fetch(`${this.apiUrl}/api/e2e/group/${groupId}/keys`, {
-      headers: {
-        'Authorization': `Bearer ${this.authToken}`
-      }
-    });
-
     if (!response.ok) {
-      throw new Error('Failed to fetch group keys');
+      throw new Error('Failed to join group on server');
     }
-
-    const bundle = await response.json();
     
-    // Add member sender keys to session
-    for (const senderKey of bundle.sender_keys) {
-      this.senderKeys.addMemberSenderKey(
-        groupId,
-        senderKey.user_id,
-        {
-          chainKey: new Uint8Array(senderKey.chain_key),
-          publicSignatureKey: new Uint8Array(senderKey.public_signature_key),
-          keyVersion: senderKey.key_version
-        }
-      );
-    }
+    // Distribute our sender key to all existing members via encrypted DMs
+    await this.keyDistribution.distributeGroupKeys(groupId, distributionMessage);
+    
+    // Request sender keys from other members
+    await this.keyDistribution.requestGroupKeys(groupId);
   }
 
-  async encryptGroupMessage(groupId: string, message: string): Promise<{
-    ciphertext: Uint8Array;
-    signature: Uint8Array;
-    keyVersion: number;
-  }> {
+  async processIncomingKeyDistribution(
+    senderId: string,
+    encryptedMessage: Uint8Array
+  ): Promise<void> {
+    // Process key distribution messages received via encrypted DMs
+    await this.keyDistribution.processKeyDistributionMessage(senderId, encryptedMessage);
+  }
+
+  async processKeyRequest(
+    senderId: string,
+    encryptedMessage: Uint8Array
+  ): Promise<void> {
+    // Process key requests and respond with our keys
+    await this.keyDistribution.processKeyRequest(senderId, encryptedMessage);
+  }
+
+  async encryptGroupMessage(groupId: string, message: string): Promise<Uint8Array> {
     const plaintext = new TextEncoder().encode(message);
-    return await this.senderKeys.encryptGroupMessage(groupId, plaintext);
+    // Use Signal's group encryption with sender keys
+    return await this.groups.encryptGroupMessage(groupId, plaintext);
   }
 
   async decryptGroupMessage(
     groupId: string,
     senderId: string,
-    ciphertext: Uint8Array,
-    signature: Uint8Array,
-    keyVersion: number
+    senderDeviceId: number,
+    ciphertext: Uint8Array
   ): Promise<string> {
-    const plaintext = await this.senderKeys.decryptGroupMessage(
+    // Use Signal's group decryption
+    const plaintext = await this.groups.decryptGroupMessage(
       groupId,
       senderId,
-      ciphertext,
-      signature,
-      keyVersion
+      senderDeviceId,
+      ciphertext
     );
     return new TextDecoder().decode(plaintext);
   }
 
   async rotateGroupKeys(groupId: string): Promise<void> {
-    const newSenderKey = await this.senderKeys.rotateGroupKeys(groupId);
-    
-    // Save updated sender key
-    await this.storage.saveSenderKey({
-      groupId,
-      chainKey: newSenderKey.chainKey,
-      signatureKeyPair: newSenderKey.signatureKeyPair,
-      keyVersion: newSenderKey.keyVersion
-    });
+    // Rotate keys and distribute new keys to all members
+    await this.keyDistribution.rotateAndDistributeKeys(groupId);
+  }
 
-    // Notify backend of key rotation
-    await fetch(`${this.apiUrl}/api/e2e/group/${groupId}/rekey`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.authToken}`
-      },
-      body: JSON.stringify({
-        chain_key: Array.from(newSenderKey.chainKey),
-        public_signature_key: Array.from(newSenderKey.signatureKeyPair.publicKey),
-        key_version: newSenderKey.keyVersion
-      })
-    });
+  async handleMemberRemoval(groupId: string, removedUserId: string): Promise<void> {
+    // Handle member removal - rotates keys and redistributes
+    await this.keyDistribution.handleMemberRemoval(groupId, removedUserId);
+  }
+
+  async handleNewMember(groupId: string, newMemberId: string): Promise<void> {
+    // Handle new member joining - exchange keys
+    await this.keyDistribution.handleNewMember(groupId, newMemberId);
   }
 }

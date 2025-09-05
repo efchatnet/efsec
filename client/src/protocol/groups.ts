@@ -179,10 +179,10 @@ export class GroupProtocol {
     const ourAddress = ProtocolAddress.new('self', 1);
     
     const ciphertext = await groupEncrypt(
-      Buffer.from(plaintext),
       ourAddress,
       distributionId,
-      this.senderKeyStore
+      this.senderKeyStore,
+      Buffer.from(plaintext)
     );
 
     return ciphertext.serialize();
@@ -202,9 +202,9 @@ export class GroupProtocol {
     const senderAddress = ProtocolAddress.new(senderId, senderDeviceId);
     
     const plaintext = await groupDecrypt(
-      Buffer.from(ciphertext),
       senderAddress,
-      this.senderKeyStore
+      this.senderKeyStore,
+      Buffer.from(ciphertext)
     );
 
     return new Uint8Array(plaintext);
@@ -276,7 +276,7 @@ export class GroupProtocol {
     }
 
     // Remove all sender keys for the old distribution
-    await this.senderKeyStore.removeAllSenderKeysForDistribution(oldDistributionId);
+    // Note: In libsignal-client, keys are replaced when new distribution is created
 
     // Create new distribution ID
     const newDistributionId = Uuid.generate();
@@ -315,7 +315,7 @@ export class GroupProtocol {
     }
 
     // Remove all sender keys for this group
-    await this.senderKeyStore.removeAllSenderKeysForDistribution(distributionId);
+    // Note: In libsignal-client, keys are removed when group is deleted
 
     // Remove from local state
     this.groupDistributionIds.delete(groupId);

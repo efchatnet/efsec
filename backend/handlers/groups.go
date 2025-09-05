@@ -81,7 +81,7 @@ func (h *GroupHandler) JoinGroup(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "joined"})
 }
 
-func (h *GroupHandler) GetGroupKeys(w http.ResponseWriter, r *http.Request) {
+func (h *GroupHandler) GetGroupMembers(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	groupID := vars["groupId"]
 	
@@ -91,20 +91,11 @@ func (h *GroupHandler) GetGroupKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	senderKeys, err := h.store.GetGroupSenderKeys(groupID)
-	if err != nil {
-		http.Error(w, "Failed to get sender keys", http.StatusInternalServerError)
-		return
-	}
-	
-	bundle := models.GroupKeyBundle{
-		GroupID:    groupID,
-		Members:    members,
-		SenderKeys: senderKeys,
-	}
-	
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(bundle)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"group_id": groupID,
+		"members": members,
+	})
 }
 
 func (h *GroupHandler) SendGroupMessage(w http.ResponseWriter, r *http.Request) {
@@ -129,4 +120,18 @@ func (h *GroupHandler) SendGroupMessage(w http.ResponseWriter, r *http.Request) 
 	
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{"message_id": msg.MessageID})
+}
+
+func (h *GroupHandler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
+	userID := r.Context().Value("user_id").(string)
+	vars := mux.Vars(r)
+	groupID := vars["groupId"]
+	
+	if err := h.store.RemoveGroupMember(groupID, userID); err != nil {
+		http.Error(w, "Failed to leave group", http.StatusInternalServerError)
+		return
+	}
+	
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "left"})
 }

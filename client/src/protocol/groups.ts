@@ -25,13 +25,11 @@ export interface GroupMember {
 export class GroupProtocol {
   private senderKeyStore: SenderKeyStoreImpl;
   private groupDistributionIds: Map<string, Uuid>;
-  private signalProtocol: SignalProtocol;
   private initialized: boolean = false;
 
-  constructor(signalProtocol: SignalProtocol) {
+  constructor(_signalProtocol: SignalProtocol) {
     this.senderKeyStore = new SenderKeyStoreImpl();
     this.groupDistributionIds = new Map();
-    this.signalProtocol = signalProtocol;
   }
 
   async initialize(): Promise<void> {
@@ -56,7 +54,7 @@ export class GroupProtocol {
         groups.forEach((group: any) => {
           this.groupDistributionIds.set(
             group.groupId,
-            Uuid.parse(group.distributionId)
+            group.distributionId
           );
         });
         resolve();
@@ -89,7 +87,7 @@ export class GroupProtocol {
 
   async createGroup(groupId: string): Promise<SenderKeyDistributionMessage> {
     // Generate a new distribution ID for this group
-    const distributionId = Uuid.generate();
+    const distributionId = crypto.randomUUID();
     this.groupDistributionIds.set(groupId, distributionId);
 
     // Save to IndexedDB
@@ -122,7 +120,7 @@ export class GroupProtocol {
     groupId: string,
     distributionId: string
   ): Promise<void> {
-    const uuid = Uuid.parse(distributionId);
+    const uuid = distributionId;
     this.groupDistributionIds.set(groupId, uuid);
 
     // Save to IndexedDB
@@ -279,7 +277,7 @@ export class GroupProtocol {
     // Note: In libsignal-client, keys are replaced when new distribution is created
 
     // Create new distribution ID
-    const newDistributionId = Uuid.generate();
+    const newDistributionId = crypto.randomUUID();
     this.groupDistributionIds.set(groupId, newDistributionId);
 
     // Save to IndexedDB

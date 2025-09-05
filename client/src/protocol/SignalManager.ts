@@ -14,7 +14,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import { SignalProtocol } from './signal';
-import { GroupManager } from './groups';
+import { GroupProtocol } from './groups';
 import { CiphertextMessageType } from '@signalapp/libsignal-client';
 
 export interface SignalManagerConfig {
@@ -35,15 +35,14 @@ export interface EncryptedMessage {
  */
 export class SignalManager {
   private signal: SignalProtocol;
-  private groupManager: GroupManager;
+  private groupProtocol: GroupProtocol;
   private config: SignalManagerConfig;
   private initialized: boolean = false;
-  private deviceId: number = 1; // Default device ID
 
   constructor(config: SignalManagerConfig) {
     this.config = config;
     this.signal = new SignalProtocol();
-    this.groupManager = new GroupManager(config.apiUrl, config.authToken);
+    this.groupProtocol = new GroupProtocol(this.signal);
   }
 
   /**
@@ -67,8 +66,8 @@ export class SignalManager {
       registrationId = await this.signal.getRegistrationId();
     }
 
-    // Initialize group manager
-    await this.groupManager.initialize();
+    // Initialize group protocol
+    await this.groupProtocol.initialize();
 
     this.initialized = true;
     console.log(`Signal Protocol initialized for user ${this.config.userId} with registration ID ${registrationId}`);
@@ -259,10 +258,10 @@ export class SignalManager {
   }
 
   /**
-   * Get the group manager instance
+   * Get the group protocol instance
    */
-  getGroupManager(): GroupManager {
-    return this.groupManager;
+  getGroupProtocol(): GroupProtocol {
+    return this.groupProtocol;
   }
 
   /**

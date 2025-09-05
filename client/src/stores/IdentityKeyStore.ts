@@ -169,7 +169,7 @@ export class IdentityKeyStoreImpl extends IdentityKeyStore {
   async isTrustedIdentity(
     address: ProtocolAddress,
     key: PublicKey,
-    direction: Direction
+    _direction: Direction
   ): Promise<boolean> {
     const id = this.getIdentityId(address);
     const trusted = this.trustedIdentities.get(id);

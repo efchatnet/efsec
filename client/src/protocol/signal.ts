@@ -14,21 +14,20 @@ import {
   CiphertextMessage,
   CiphertextMessageType,
   ProtocolAddress,
-  SessionRecord,
   PreKeyRecord,
   SignedPreKeyRecord,
   processPreKeyBundle,
   signalEncrypt,
   signalDecryptPreKey,
-  signalDecrypt,
-  Direction
+  signalDecrypt
 } from '@signalapp/libsignal-client';
 
 import {
   SessionStoreImpl,
   IdentityKeyStoreImpl,
   PreKeyStoreImpl,
-  SignedPreKeyStoreImpl
+  SignedPreKeyStoreImpl,
+  KyberPreKeyStoreImpl
 } from '../stores';
 
 export interface SignalKeys {
@@ -50,6 +49,7 @@ export class SignalProtocol {
   private identityStore: IdentityKeyStoreImpl;
   private preKeyStore: PreKeyStoreImpl;
   private signedPreKeyStore: SignedPreKeyStoreImpl;
+  private kyberPreKeyStore: KyberPreKeyStoreImpl;
   private initialized: boolean = false;
 
   constructor() {
@@ -57,6 +57,7 @@ export class SignalProtocol {
     this.identityStore = new IdentityKeyStoreImpl();
     this.preKeyStore = new PreKeyStoreImpl();
     this.signedPreKeyStore = new SignedPreKeyStoreImpl();
+    this.kyberPreKeyStore = new KyberPreKeyStoreImpl();
   }
 
   async initialize(): Promise<void> {
@@ -66,7 +67,8 @@ export class SignalProtocol {
       this.sessionStore.init(),
       this.identityStore.init(),
       this.preKeyStore.init(),
-      this.signedPreKeyStore.init()
+      this.signedPreKeyStore.init(),
+      this.kyberPreKeyStore.init()
     ]);
 
     this.initialized = true;
@@ -255,7 +257,7 @@ export class SignalProtocol {
         this.identityStore,
         this.preKeyStore,
         this.signedPreKeyStore,
-        null
+        this.kyberPreKeyStore
       );
 
       // Remove used one-time prekey
@@ -310,7 +312,6 @@ export class SignalProtocol {
     keyId: number;
     publicKey: Uint8Array;
   }>> {
-    const identityKeyPair = await this.getIdentityKeyPair();
     const newPreKeys = await this.generatePreKeys(start, count);
     
     const publicKeys: Array<{ keyId: number; publicKey: Uint8Array }> = [];

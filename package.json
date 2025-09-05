@@ -20,7 +20,7 @@
     "end-to-end",
     "encryption"
   ],
-  "author": "William Theesfeld <tj@efchat.net>",
+  "author": "efchat.net <tj@efchat.net>",
   "license": "GPL-3.0-or-later",
   "files": [
     "client/dist/**/*",

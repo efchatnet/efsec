@@ -1,7 +1,65 @@
 # efsec
-efchat secure message protocol
+End-to-End Encryption Module for efchat using Signal Protocol
 
-## Tasks
+## Overview
+This repository contains all E2E encryption code for efchat, implementing the Signal Protocol for both 1:1 direct messages and group chats. The code is separated from the main application for security auditing purposes.
+
+## Architecture
+
+### Security Principles
+- **Zero-Knowledge Backend**: Server only stores public keys, never sees private keys or plaintext
+- **Client-Side Encryption**: All cryptographic operations happen on the client
+- **Verifiable Source**: libsignal included as git submodule for build verification
+
+### Components
+
+#### Backend (Go)
+- REST API for key management
+- PostgreSQL storage for public keys
+- Group management with Sender Keys
+- Zero-knowledge message relay
+
+#### Client (TypeScript)
+- Signal Protocol wrapper (X3DH + Double Ratchet)
+- Sender Keys for group E2E
+- IndexedDB for secure key storage
+- Session management
+
+## Integration with efchat
+
+### Backend Integration
+```go
+import "github.com/efchatnet/efsec/backend/integration"
+
+// In your main.go or router setup
+e2e, err := integration.NewE2EIntegration(db, redisClient)
+if err != nil {
+    log.Fatal(err)
+}
+
+// Register E2E routes with your existing router
+e2e.RegisterRoutes(router, yourAuthMiddleware)
+```
+
+### Frontend Integration
+```typescript
+import { EfSecClient } from '@efchat/efsec';
+
+// Initialize E2E client
+const e2e = new EfSecClient('https://api.efchat.net');
+await e2e.init(authToken);
+
+// Start DM session
+await e2e.startDMSession(recipientUserId);
+
+// Encrypt message
+const encrypted = await e2e.encryptDM(recipientUserId, messageText);
+
+// Decrypt received message
+const plaintext = await e2e.decryptDM(senderId, encryptedData);
+```
+
+## Key Management Tasks
 - Ensure keys are generated and stored securely on the client (never send private keys to the server).
 - Regenerate one-time prekeys periodically (after use) and upload new batches.
 

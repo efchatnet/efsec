@@ -5,28 +5,23 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import { 
-  PrivateKey, 
-  PublicKey, 
+import {
+  IdentityKeyStore,
+  PrivateKey,
+  PublicKey,
   ProtocolAddress,
-  Direction 
+  Direction
 } from '@signalapp/libsignal-client';
 
-interface IdentityRecord {
-  identityKey: Uint8Array;
-  registrationId: number;
-  trustLevel: number;
-  timestamp: number;
-}
-
-export class IdentityKeyStoreImpl {
-  private identityKeyPair: { privateKey: Uint8Array; publicKey: Uint8Array } | null = null;
-  private localRegistrationId: number | null = null;
-  private trustedIdentities: Map<string, IdentityRecord>;
-  private db: IDBDatabase | null = null;
+export class IdentityKeyStoreImpl extends IdentityKeyStore {
+  private identityKey: PrivateKey | null = null;
+  private registrationId: number | null = null;
+  private trustedIdentities: Map<string, Uint8Array>;
   private dbName = 'efchat-e2e-identity';
+  private db: IDBDatabase | null = null;
 
   constructor() {
+    super();
     this.trustedIdentities = new Map();
   }
 
@@ -37,170 +32,165 @@ export class IdentityKeyStoreImpl {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         this.db = request.result;
-        this.loadIdentitiesFromDB();
-        resolve();
+        this.loadFromDB().then(resolve).catch(reject);
       };
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
         
         if (!db.objectStoreNames.contains('identity')) {
-          db.createObjectStore('identity', { keyPath: 'id' });
+          db.createObjectStore('identity', { keyPath: 'key' });
         }
         
-        if (!db.objectStoreNames.contains('trusted')) {
-          db.createObjectStore('trusted', { keyPath: 'address' });
+        if (!db.objectStoreNames.contains('trustedIdentities')) {
+          db.createObjectStore('trustedIdentities', { keyPath: 'id' });
         }
       };
     });
   }
 
-  private async loadIdentitiesFromDB(): Promise<void> {
+  private async loadFromDB(): Promise<void> {
     if (!this.db) return;
 
-    // Load our identity
-    const transaction = this.db.transaction(['identity'], 'readonly');
-    const store = transaction.objectStore('identity');
-    const request = store.get('local');
-
-    request.onsuccess = () => {
-      if (request.result) {
-        this.identityKeyPair = request.result.keyPair;
-        this.localRegistrationId = request.result.registrationId;
-      }
-    };
+    // Load identity key and registration ID
+    const identityData = await this.loadIdentityFromDB();
+    if (identityData) {
+      this.identityKey = PrivateKey.deserialize(Buffer.from(identityData.privateKey));
+      this.registrationId = identityData.registrationId;
+    }
 
     // Load trusted identities
-    const trustedTransaction = this.db.transaction(['trusted'], 'readonly');
-    const trustedStore = trustedTransaction.objectStore('trusted');
-    const trustedRequest = trustedStore.getAll();
-
-    trustedRequest.onsuccess = () => {
-      const identities = trustedRequest.result;
-      identities.forEach((identity: any) => {
-        this.trustedIdentities.set(identity.address, identity);
-      });
-    };
+    await this.loadTrustedIdentitiesFromDB();
   }
 
-  async getIdentityKeyPair(): Promise<{ privateKey: PrivateKey; publicKey: PublicKey }> {
-    if (!this.identityKeyPair) {
-      throw new Error('Identity key pair not initialized');
+  private async loadIdentityFromDB(): Promise<any> {
+    if (!this.db) return null;
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['identity'], 'readonly');
+      const store = transaction.objectStore('identity');
+      const request = store.get('identity');
+
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  private async loadTrustedIdentitiesFromDB(): Promise<void> {
+    if (!this.db) return;
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['trustedIdentities'], 'readonly');
+      const store = transaction.objectStore('trustedIdentities');
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const identities = request.result;
+        identities.forEach((identity: any) => {
+          this.trustedIdentities.set(identity.id, new Uint8Array(identity.publicKey));
+        });
+        resolve();
+      };
+
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async setIdentityKeyPair(privateKey: PrivateKey, registrationId: number): Promise<void> {
+    this.identityKey = privateKey;
+    this.registrationId = registrationId;
+
+    if (!this.db) return;
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['identity'], 'readwrite');
+      const store = transaction.objectStore('identity');
+      
+      const request = store.put({
+        key: 'identity',
+        privateKey: Array.from(privateKey.serialize()),
+        registrationId: registrationId
+      });
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  private getIdentityId(address: ProtocolAddress): string {
+    return `${address.serviceId()}.${address.deviceId()}`;
+  }
+
+  // Implementation of abstract methods from IdentityKeyStore
+
+  async getIdentityKey(): Promise<PrivateKey> {
+    if (!this.identityKey) {
+      throw new Error('Identity key not initialized');
     }
-    
-    return {
-      privateKey: PrivateKey.deserialize(this.identityKeyPair.privateKey),
-      publicKey: PublicKey.deserialize(this.identityKeyPair.publicKey)
-    };
+    return this.identityKey;
   }
 
   async getLocalRegistrationId(): Promise<number> {
-    if (this.localRegistrationId === null) {
+    if (this.registrationId === null) {
       throw new Error('Registration ID not initialized');
     }
-    return this.localRegistrationId;
+    return this.registrationId;
   }
 
-  async saveIdentity(address: ProtocolAddress, identity: PublicKey): Promise<boolean> {
-    const addressKey = `${address.name()}.${address.deviceId()}`;
-    const identityBytes = identity.serialize();
+  async saveIdentity(address: ProtocolAddress, key: PublicKey): Promise<boolean> {
+    const id = this.getIdentityId(address);
+    const serialized = key.serialize();
     
-    // Check if we have an existing identity
-    const existing = this.trustedIdentities.get(addressKey);
+    // Check if we already have a different key for this address
+    const existing = this.trustedIdentities.get(id);
+    const changed = !existing || !Buffer.from(existing).equals(serialized);
     
-    const identityRecord: IdentityRecord = {
-      identityKey: identityBytes,
-      registrationId: 0, // Will be set during X3DH
-      trustLevel: 0,
-      timestamp: Date.now()
-    };
+    this.trustedIdentities.set(id, serialized);
     
-    this.trustedIdentities.set(addressKey, identityRecord);
-    
-    // Save to IndexedDB
+    // Persist to IndexedDB
     if (this.db) {
-      const transaction = this.db.transaction(['trusted'], 'readwrite');
-      const store = transaction.objectStore('trusted');
       await new Promise<void>((resolve, reject) => {
+        const transaction = this.db!.transaction(['trustedIdentities'], 'readwrite');
+        const store = transaction.objectStore('trustedIdentities');
+        
         const request = store.put({
-          address: addressKey,
-          ...identityRecord
+          id,
+          publicKey: Array.from(serialized)
         });
+
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
     }
     
-    // Return true if this was a new identity or it changed
-    return !existing || 
-           Buffer.compare(Buffer.from(existing.identityKey), Buffer.from(identityBytes)) !== 0;
+    return changed;
   }
 
   async isTrustedIdentity(
     address: ProtocolAddress,
-    identity: PublicKey,
+    key: PublicKey,
     direction: Direction
   ): Promise<boolean> {
-    const addressKey = `${address.name()}.${address.deviceId()}`;
-    const trusted = this.trustedIdentities.get(addressKey);
+    const id = this.getIdentityId(address);
+    const trusted = this.trustedIdentities.get(id);
     
     if (!trusted) {
-      // First time seeing this identity, trust on first use (TOFU)
+      // First time seeing this identity, trust it
       return true;
     }
     
-    // Check if the identity matches what we have stored
-    const identityBytes = identity.serialize();
-    return Buffer.compare(Buffer.from(trusted.identityKey), Buffer.from(identityBytes)) === 0;
+    // Check if the key matches what we have stored
+    return Buffer.from(trusted).equals(key.serialize());
   }
 
   async getIdentity(address: ProtocolAddress): Promise<PublicKey | null> {
-    const addressKey = `${address.name()}.${address.deviceId()}`;
-    const identity = this.trustedIdentities.get(addressKey);
+    const id = this.getIdentityId(address);
+    const serialized = this.trustedIdentities.get(id);
     
-    if (!identity) {
+    if (!serialized) {
       return null;
     }
     
-    return PublicKey.deserialize(identity.identityKey);
-  }
-
-  async saveIdentityKeyPair(privateKey: PrivateKey, publicKey: PublicKey): Promise<void> {
-    this.identityKeyPair = {
-      privateKey: privateKey.serialize(),
-      publicKey: publicKey.serialize()
-    };
-
-    if (this.db) {
-      const transaction = this.db.transaction(['identity'], 'readwrite');
-      const store = transaction.objectStore('identity');
-      await new Promise<void>((resolve, reject) => {
-        const request = store.put({
-          id: 'local',
-          keyPair: this.identityKeyPair,
-          registrationId: this.localRegistrationId
-        });
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-    }
-  }
-
-  async saveLocalRegistrationId(registrationId: number): Promise<void> {
-    this.localRegistrationId = registrationId;
-
-    if (this.db) {
-      const transaction = this.db.transaction(['identity'], 'readwrite');
-      const store = transaction.objectStore('identity');
-      await new Promise<void>((resolve, reject) => {
-        const request = store.put({
-          id: 'local',
-          keyPair: this.identityKeyPair,
-          registrationId: this.localRegistrationId
-        });
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-    }
+    return PublicKey.deserialize(Buffer.from(serialized));
   }
 }

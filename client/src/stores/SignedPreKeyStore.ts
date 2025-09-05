@@ -5,21 +5,18 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import { PrivateKey } from '@signalapp/libsignal-client';
+import {
+  SignedPreKeyStore,
+  SignedPreKeyRecord
+} from '@signalapp/libsignal-client';
 
-interface SignedPreKeyRecord {
-  id: number;
-  key: Uint8Array;
-  signature: Uint8Array;
-  timestamp: number;
-}
-
-export class SignedPreKeyStoreImpl {
-  private signedPreKeys: Map<number, SignedPreKeyRecord>;
-  private db: IDBDatabase | null = null;
+export class SignedPreKeyStoreImpl extends SignedPreKeyStore {
+  private signedPreKeys: Map<number, Uint8Array>;
   private dbName = 'efchat-e2e-signed-prekeys';
+  private db: IDBDatabase | null = null;
 
   constructor() {
+    super();
     this.signedPreKeys = new Map();
   }
 
@@ -30,32 +27,30 @@ export class SignedPreKeyStoreImpl {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         this.db = request.result;
-        this.loadSignedPreKeysFromDB();
-        resolve();
+        this.loadFromDB().then(resolve).catch(reject);
       };
 
       request.onupgradeneeded = (event) => {
         const db = (event.target as IDBOpenDBRequest).result;
-        if (!db.objectStoreNames.contains('signedprekeys')) {
-          const store = db.createObjectStore('signedprekeys', { keyPath: 'id' });
-          store.createIndex('timestamp', 'timestamp', { unique: false });
+        if (!db.objectStoreNames.contains('signedPreKeys')) {
+          db.createObjectStore('signedPreKeys', { keyPath: 'id' });
         }
       };
     });
   }
 
-  private async loadSignedPreKeysFromDB(): Promise<void> {
+  private async loadFromDB(): Promise<void> {
     if (!this.db) return;
 
     return new Promise((resolve, reject) => {
-      const transaction = this.db!.transaction(['signedprekeys'], 'readonly');
-      const store = transaction.objectStore('signedprekeys');
+      const transaction = this.db!.transaction(['signedPreKeys'], 'readonly');
+      const store = transaction.objectStore('signedPreKeys');
       const request = store.getAll();
 
       request.onsuccess = () => {
         const signedPreKeys = request.result;
-        signedPreKeys.forEach((spk: SignedPreKeyRecord) => {
-          this.signedPreKeys.set(spk.id, spk);
+        signedPreKeys.forEach((signedPreKey: any) => {
+          this.signedPreKeys.set(signedPreKey.id, new Uint8Array(signedPreKey.record));
         });
         resolve();
       };
@@ -64,97 +59,58 @@ export class SignedPreKeyStoreImpl {
     });
   }
 
-  async saveSignedPreKey(
-    id: number, 
-    record: PrivateKey, 
-    signature: Uint8Array
-  ): Promise<void> {
+  private async saveSignedPreKeyToDB(id: number, record: Uint8Array): Promise<void> {
+    if (!this.db) return;
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['signedPreKeys'], 'readwrite');
+      const store = transaction.objectStore('signedPreKeys');
+      const request = store.put({ id, record: Array.from(record) });
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  // Implementation of abstract methods from SignedPreKeyStore
+
+  async saveSignedPreKey(id: number, record: SignedPreKeyRecord): Promise<void> {
     const serialized = record.serialize();
-    const signedPreKeyRecord: SignedPreKeyRecord = {
-      id,
-      key: serialized,
-      signature,
-      timestamp: Date.now()
-    };
-    
-    this.signedPreKeys.set(id, signedPreKeyRecord);
-
-    if (this.db) {
-      const transaction = this.db.transaction(['signedprekeys'], 'readwrite');
-      const store = transaction.objectStore('signedprekeys');
-      await new Promise<void>((resolve, reject) => {
-        const request = store.put(signedPreKeyRecord);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-    }
+    this.signedPreKeys.set(id, serialized);
+    await this.saveSignedPreKeyToDB(id, serialized);
   }
 
-  async getSignedPreKey(id: number): Promise<PrivateKey> {
-    const record = this.signedPreKeys.get(id);
+  async getSignedPreKey(id: number): Promise<SignedPreKeyRecord> {
+    const serialized = this.signedPreKeys.get(id);
     
-    if (!record) {
+    if (!serialized) {
       throw new Error(`SignedPreKey ${id} not found`);
     }
     
-    return PrivateKey.deserialize(record.key);
+    return SignedPreKeyRecord.deserialize(Buffer.from(serialized));
   }
 
-  async getSignedPreKeySignature(id: number): Promise<Uint8Array> {
-    const record = this.signedPreKeys.get(id);
-    
-    if (!record) {
-      throw new Error(`SignedPreKey ${id} not found`);
-    }
-    
-    return record.signature;
-  }
-
+  // Helper methods
   async containsSignedPreKey(id: number): Promise<boolean> {
     return this.signedPreKeys.has(id);
   }
 
   async removeSignedPreKey(id: number): Promise<void> {
     this.signedPreKeys.delete(id);
+    
+    if (!this.db) return;
 
-    if (this.db) {
-      const transaction = this.db.transaction(['signedprekeys'], 'readwrite');
-      const store = transaction.objectStore('signedprekeys');
-      await new Promise<void>((resolve, reject) => {
-        const request = store.delete(id);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      });
-    }
+    return new Promise((resolve, reject) => {
+      const transaction = this.db!.transaction(['signedPreKeys'], 'readwrite');
+      const store = transaction.objectStore('signedPreKeys');
+      const request = store.delete(id);
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
   }
 
   async getAllSignedPreKeyIds(): Promise<number[]> {
     return Array.from(this.signedPreKeys.keys());
-  }
-
-  async getOldestSignedPreKey(): Promise<number | null> {
-    let oldestId: number | null = null;
-    let oldestTimestamp = Infinity;
-
-    this.signedPreKeys.forEach((record, id) => {
-      if (record.timestamp < oldestTimestamp) {
-        oldestTimestamp = record.timestamp;
-        oldestId = id;
-      }
-    });
-
-    return oldestId;
-  }
-
-  async removeOldSignedPreKeys(keepCount: number = 3): Promise<void> {
-    const sortedKeys = Array.from(this.signedPreKeys.entries())
-      .sort((a, b) => b[1].timestamp - a[1].timestamp);
-
-    // Keep the most recent ones
-    const toRemove = sortedKeys.slice(keepCount);
-
-    for (const [id] of toRemove) {
-      await this.removeSignedPreKey(id);
-    }
   }
 }

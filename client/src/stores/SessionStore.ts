@@ -5,14 +5,19 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import { SessionRecord, ProtocolAddress } from '@signalapp/libsignal-client';
+import {
+  SessionStore,
+  SessionRecord,
+  ProtocolAddress
+} from '@signalapp/libsignal-client';
 
-export class SessionStoreImpl {
+export class SessionStoreImpl extends SessionStore {
   private sessions: Map<string, Uint8Array>;
   private dbName = 'efchat-e2e-sessions';
   private db: IDBDatabase | null = null;
 
   constructor() {
+    super();
     this.sessions = new Map();
   }
 
@@ -23,8 +28,7 @@ export class SessionStoreImpl {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         this.db = request.result;
-        this.loadSessionsFromDB();
-        resolve();
+        this.loadSessionsFromDB().then(resolve).catch(reject);
       };
 
       request.onupgradeneeded = (event) => {
@@ -47,7 +51,7 @@ export class SessionStoreImpl {
       request.onsuccess = () => {
         const sessions = request.result;
         sessions.forEach((session: any) => {
-          this.sessions.set(session.id, session.record);
+          this.sessions.set(session.id, new Uint8Array(session.record));
         });
         resolve();
       };
@@ -62,15 +66,21 @@ export class SessionStoreImpl {
     return new Promise((resolve, reject) => {
       const transaction = this.db!.transaction(['sessions'], 'readwrite');
       const store = transaction.objectStore('sessions');
-      const request = store.put({ id, record });
+      const request = store.put({ id, record: Array.from(record) });
 
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
   }
 
+  private getSessionId(address: ProtocolAddress): string {
+    return `${address.serviceId()}.${address.deviceId()}`;
+  }
+
+  // Implementation of abstract methods from SessionStore
+
   async saveSession(address: ProtocolAddress, record: SessionRecord): Promise<void> {
-    const id = `${address.name()}.${address.deviceId()}`;
+    const id = this.getSessionId(address);
     const serialized = record.serialize();
     
     this.sessions.set(id, serialized);
@@ -78,14 +88,14 @@ export class SessionStoreImpl {
   }
 
   async getSession(address: ProtocolAddress): Promise<SessionRecord | null> {
-    const id = `${address.name()}.${address.deviceId()}`;
+    const id = this.getSessionId(address);
     const serialized = this.sessions.get(id);
     
     if (!serialized) {
       return null;
     }
     
-    return SessionRecord.deserialize(serialized);
+    return SessionRecord.deserialize(Buffer.from(serialized));
   }
 
   async getExistingSessions(addresses: ProtocolAddress[]): Promise<SessionRecord[]> {

@@ -5,18 +5,20 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import { 
+import {
+  SenderKeyStore,
   SenderKeyRecord,
   ProtocolAddress,
   Uuid
 } from '@signalapp/libsignal-client';
 
-export class SenderKeyStoreImpl {
+export class SenderKeyStoreImpl extends SenderKeyStore {
   private senderKeys: Map<string, Uint8Array>;
   private db: IDBDatabase | null = null;
   private dbName = 'efchat-e2e-senderkeys';
 
   constructor() {
+    super();
     this.senderKeys = new Map();
   }
 
@@ -27,8 +29,7 @@ export class SenderKeyStoreImpl {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
         this.db = request.result;
-        this.loadSenderKeysFromDB();
-        resolve();
+        this.loadSenderKeysFromDB().then(resolve).catch(reject);
       };
 
       request.onupgradeneeded = (event) => {
@@ -51,7 +52,7 @@ export class SenderKeyStoreImpl {
       request.onsuccess = () => {
         const senderKeys = request.result;
         senderKeys.forEach((key: any) => {
-          this.senderKeys.set(key.id, key.record);
+          this.senderKeys.set(key.id, new Uint8Array(key.record));
         });
         resolve();
       };
@@ -61,7 +62,7 @@ export class SenderKeyStoreImpl {
   }
 
   private getSenderKeyId(sender: ProtocolAddress, distributionId: Uuid): string {
-    return `${sender.name()}.${sender.deviceId()}::${distributionId.toString()}`;
+    return `${sender.serviceId()}.${sender.deviceId()}::${distributionId.toString()}`;
   }
 
   async saveSenderKey(
@@ -78,7 +79,7 @@ export class SenderKeyStoreImpl {
       const transaction = this.db.transaction(['senderkeys'], 'readwrite');
       const store = transaction.objectStore('senderkeys');
       await new Promise<void>((resolve, reject) => {
-        const request = store.put({ id, record: serialized });
+        const request = store.put({ id, record: Array.from(serialized) });
         request.onsuccess = () => resolve();
         request.onerror = () => reject(request.error);
       });
@@ -96,7 +97,7 @@ export class SenderKeyStoreImpl {
       return null;
     }
     
-    return SenderKeyRecord.deserialize(serialized);
+    return SenderKeyRecord.deserialize(Buffer.from(serialized));
   }
 
   async removeSenderKey(

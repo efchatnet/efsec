@@ -42,11 +42,21 @@ type OneTimePreKey struct {
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
 
+type KyberPreKey struct {
+	UserID    string    `json:"user_id" db:"user_id"`
+	KeyID     int       `json:"key_id" db:"key_id"`
+	PublicKey []byte    `json:"public_key" db:"public_key"`
+	Signature []byte    `json:"signature" db:"signature"`
+	Used      bool      `json:"used" db:"used"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+}
+
 type PreKeyBundle struct {
-	RegistrationID     int           `json:"registration_id"`
-	IdentityPublicKey  []byte        `json:"identity_public_key"`
-	SignedPreKey       SignedPreKey  `json:"signed_pre_key"`
+	RegistrationID     int            `json:"registration_id"`
+	IdentityPublicKey  []byte         `json:"identity_public_key"`
+	SignedPreKey       SignedPreKey   `json:"signed_pre_key"`
 	OneTimePreKey      *OneTimePreKey `json:"one_time_pre_key,omitempty"`
+	KyberPreKey        *KyberPreKey   `json:"kyber_pre_key,omitempty"`
 }
 
 type KeyRegistration struct {
@@ -54,4 +64,5 @@ type KeyRegistration struct {
 	IdentityPublicKey []byte          `json:"identity_public_key"`
 	SignedPreKey      SignedPreKey    `json:"signed_pre_key"`
 	OneTimePreKeys    []OneTimePreKey `json:"one_time_pre_keys"`
+	KyberPreKeys      []KyberPreKey   `json:"kyber_pre_keys,omitempty"`
 }

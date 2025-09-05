@@ -25,6 +25,12 @@ type KeyStore interface {
 	AddOneTimePreKeys(userID string, prekeys []models.OneTimePreKey) error
 	MarkPreKeyUsed(userID string, keyID int) error
 	GetUnusedPreKeyCount(userID string) (int, error)
+	
+	// Kyber prekey support (post-quantum resistant)
+	AddKyberPreKeys(userID string, prekeys []models.KyberPreKey) error
+	GetUnusedKyberPreKey(userID string) (*models.KyberPreKey, error)
+	MarkKyberPreKeyUsed(userID string, keyID int) error
+	GetUnusedKyberPreKeyCount(userID string) (int, error)
 }
 
 type GroupStore interface {

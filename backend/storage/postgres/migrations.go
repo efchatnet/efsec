@@ -50,6 +50,22 @@ func (s *Store) Migrate() error {
 		ON one_time_pre_keys(user_id, used) 
 		WHERE used = FALSE`,
 
+		// Kyber prekeys table (post-quantum resistant)
+		`CREATE TABLE IF NOT EXISTS kyber_pre_keys (
+			user_id VARCHAR(255) NOT NULL,
+			key_id INTEGER NOT NULL,
+			public_key BYTEA NOT NULL,
+			signature BYTEA NOT NULL,
+			used BOOLEAN NOT NULL DEFAULT FALSE,
+			created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			PRIMARY KEY (user_id, key_id)
+		)`,
+
+		// Create index for finding unused Kyber prekeys
+		`CREATE INDEX IF NOT EXISTS idx_unused_kyber_prekeys 
+		ON kyber_pre_keys(user_id, used) 
+		WHERE used = FALSE`,
+
 		// Groups table
 		`CREATE TABLE IF NOT EXISTS groups (
 			group_id VARCHAR(255) PRIMARY KEY,

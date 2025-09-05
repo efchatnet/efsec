@@ -15,10 +15,13 @@ import {
   CiphertextMessageType,
   ProtocolAddress,
   SessionRecord,
+  PreKeyRecord,
+  SignedPreKeyRecord,
   processPreKeyBundle,
   signalEncrypt,
   signalDecryptPreKey,
-  signalDecrypt
+  signalDecrypt,
+  Direction
 } from '@signalapp/libsignal-client';
 
 import {
@@ -122,22 +125,32 @@ export class SignalProtocol {
     const oneTimePreKeys = await this.generatePreKeys(2, 100); // Start at 2, generate 100
 
     // Store our identity
-    await this.identityStore.saveIdentityKeyPair(
+    await this.identityStore.setIdentityKeyPair(
       identityKeyPair.privateKey,
-      identityKeyPair.publicKey
+      registrationId
     );
-    await this.identityStore.saveLocalRegistrationId(registrationId);
 
     // Store signed prekey
+    const signedPreKeyRecord = SignedPreKeyRecord.new(
+      signedPreKey.keyId,
+      Date.now(),
+      signedPreKey.keyPair.publicKey,
+      signedPreKey.keyPair.privateKey,
+      Buffer.from(signedPreKey.signature)
+    );
     await this.signedPreKeyStore.saveSignedPreKey(
       signedPreKey.keyId,
-      signedPreKey.keyPair.privateKey,
-      signedPreKey.signature
+      signedPreKeyRecord
     );
 
     // Store one-time prekeys
     for (const preKey of oneTimePreKeys) {
-      await this.preKeyStore.savePreKey(preKey.keyId, preKey.keyPair.privateKey);
+      const preKeyRecord = PreKeyRecord.new(
+        preKey.keyId,
+        preKey.keyPair.publicKey,
+        preKey.keyPair.privateKey
+      );
+      await this.preKeyStore.savePreKey(preKey.keyId, preKeyRecord);
     }
 
     return {
@@ -157,8 +170,8 @@ export class SignalProtocol {
       signedPreKeyId: number;
       signedPreKeyPublic: Uint8Array;
       signedPreKeySignature: Uint8Array;
-      preKeyId?: number;
-      preKeyPublic?: Uint8Array;
+      preKeyId?: number | null;
+      preKeyPublic?: Uint8Array | null;
     }
   ): Promise<void> {
     const theirIdentityKey = PublicKey.deserialize(Buffer.from(bundle.identityKey));
@@ -176,13 +189,13 @@ export class SignalProtocol {
 
     const theirPreKey = bundle.preKeyPublic 
       ? PublicKey.deserialize(Buffer.from(bundle.preKeyPublic))
-      : undefined;
+      : null;
 
     const preKeyBundle = PreKeyBundle.new(
       bundle.registrationId,
       deviceId,
-      bundle.preKeyId,
-      theirPreKey,
+      bundle.preKeyId || null,
+      theirPreKey || null,
       bundle.signedPreKeyId,
       theirSignedPreKey,
       Buffer.from(bundle.signedPreKeySignature),
@@ -214,12 +227,9 @@ export class SignalProtocol {
     const ciphertext = await signalEncrypt(
       Buffer.from(message),
       address,
-      sessionRecord,
+      this.sessionStore,
       this.identityStore
     );
-
-    // Save updated session
-    await this.sessionStore.saveSession(address, sessionRecord);
 
     return ciphertext;
   }
@@ -231,7 +241,6 @@ export class SignalProtocol {
     type: CiphertextMessageType
   ): Promise<Uint8Array> {
     const address = ProtocolAddress.new(userId, deviceId);
-    let sessionRecord = await this.sessionStore.getSession(address);
     
     let plaintext: Buffer;
 
@@ -239,18 +248,14 @@ export class SignalProtocol {
       // This is a PreKeySignalMessage
       const preKeyMessage = PreKeySignalMessage.deserialize(Buffer.from(ciphertext));
       
-      // Create session if it doesn't exist
-      if (!sessionRecord) {
-        sessionRecord = SessionRecord.new();
-      }
-
       plaintext = await signalDecryptPreKey(
         preKeyMessage,
         address,
-        sessionRecord,
+        this.sessionStore,
         this.identityStore,
         this.preKeyStore,
-        this.signedPreKeyStore
+        this.signedPreKeyStore,
+        null
       );
 
       // Remove used one-time prekey
@@ -260,6 +265,7 @@ export class SignalProtocol {
       }
     } else if (type === CiphertextMessageType.Whisper) {
       // This is a regular SignalMessage
+      const sessionRecord = await this.sessionStore.getSession(address);
       if (!sessionRecord) {
         throw new Error('No session established');
       }
@@ -269,15 +275,12 @@ export class SignalProtocol {
       plaintext = await signalDecrypt(
         signalMessage,
         address,
-        sessionRecord,
+        this.sessionStore,
         this.identityStore
       );
     } else {
       throw new Error(`Unsupported message type: ${type}`);
     }
-
-    // Save updated session
-    await this.sessionStore.saveSession(address, sessionRecord);
 
     return new Uint8Array(plaintext);
   }
@@ -293,11 +296,14 @@ export class SignalProtocol {
   }
 
   async getIdentityKeyPair(): Promise<{ privateKey: PrivateKey; publicKey: PublicKey }> {
-    return await this.identityStore.getIdentityKeyPair();
+    const privateKey = await this.identityStore.getIdentityKey();
+    const publicKey = privateKey.getPublicKey();
+    return { privateKey, publicKey };
   }
 
   async getUnusedPreKeyCount(): Promise<number> {
-    return await this.preKeyStore.countPreKeys();
+    // This is a custom helper method, not part of libsignal
+    return await (this.preKeyStore as PreKeyStoreImpl).countPreKeys();
   }
 
   async replenishPreKeys(start: number, count: number): Promise<Array<{
@@ -310,7 +316,12 @@ export class SignalProtocol {
     const publicKeys: Array<{ keyId: number; publicKey: Uint8Array }> = [];
     
     for (const preKey of newPreKeys) {
-      await this.preKeyStore.savePreKey(preKey.keyId, preKey.keyPair.privateKey);
+      const preKeyRecord = PreKeyRecord.new(
+        preKey.keyId,
+        preKey.keyPair.publicKey,
+        preKey.keyPair.privateKey
+      );
+      await this.preKeyStore.savePreKey(preKey.keyId, preKeyRecord);
       publicKeys.push({
         keyId: preKey.keyId,
         publicKey: preKey.keyPair.publicKey.serialize()
@@ -328,14 +339,17 @@ export class SignalProtocol {
     const identityKeyPair = await this.getIdentityKeyPair();
     const signedPreKey = await this.generateSignedPreKey(identityKeyPair.privateKey, keyId);
     
+    const signedPreKeyRecord = SignedPreKeyRecord.new(
+      signedPreKey.keyId,
+      Date.now(),
+      signedPreKey.keyPair.publicKey,
+      signedPreKey.keyPair.privateKey,
+      Buffer.from(signedPreKey.signature)
+    );
     await this.signedPreKeyStore.saveSignedPreKey(
       signedPreKey.keyId,
-      signedPreKey.keyPair.privateKey,
-      signedPreKey.signature
+      signedPreKeyRecord
     );
-
-    // Clean up old signed prekeys (keep last 3)
-    await this.signedPreKeyStore.removeOldSignedPreKeys(3);
 
     return {
       keyId: signedPreKey.keyId,

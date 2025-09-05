@@ -21,15 +21,21 @@ import (
 
 	"github.com/redis/go-redis/v9"
 	"github.com/efchatnet/efsec/backend/models"
+	redisStore "github.com/efchatnet/efsec/backend/storage/redis"
 )
 
 type Store struct {
-	db    *sql.DB
-	redis *redis.Client
+	db      *sql.DB
+	redis   *redis.Client
+	dmStore *redisStore.DMStore
 }
 
 func NewStore(db *sql.DB, redis *redis.Client) *Store {
-	return &Store{db: db, redis: redis}
+	return &Store{
+		db:      db,
+		redis:   redis,
+		dmStore: redisStore.NewDMStore(redis),
+	}
 }
 
 func (s *Store) SaveIdentityKey(userID string, registration models.KeyRegistration) error {

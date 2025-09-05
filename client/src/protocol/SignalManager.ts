@@ -135,9 +135,9 @@ export class SignalManager {
       signedPreKeyId: bundle.signed_pre_key.id,
       signedPreKeyPublic: new Uint8Array(bundle.signed_pre_key.public_key),
       signedPreKeySignature: new Uint8Array(bundle.signed_pre_key.signature),
-      preKeyId: bundle.one_time_pre_key?.id,
+      preKeyId: bundle.one_time_pre_key?.id || null,
       preKeyPublic: bundle.one_time_pre_key ? 
-        new Uint8Array(bundle.one_time_pre_key.public_key) : undefined
+        new Uint8Array(bundle.one_time_pre_key.public_key) : null
     });
 
     // Mark used prekey on backend

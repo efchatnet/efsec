@@ -140,7 +140,7 @@ export class SignalProtocol {
       Date.now(),
       signedPreKey.keyPair.publicKey,
       signedPreKey.keyPair.privateKey,
-      Buffer.from(signedPreKey.signature)
+      signedPreKey.signature
     );
     await this.signedPreKeyStore.saveSignedPreKey(
       signedPreKey.keyId,
@@ -265,7 +265,7 @@ export class SignalProtocol {
   ): Promise<Uint8Array> {
     const address = ProtocolAddress.new(userId, deviceId);
     
-    let plaintext: Buffer;
+    let plaintext: Uint8Array;
 
     if (type === CiphertextMessageType.PreKey) {
       // This is a PreKeySignalMessage
@@ -280,7 +280,7 @@ export class SignalProtocol {
         this.signedPreKeyStore,
         this.kyberPreKeyStore,
         UsePQRatchet.Yes
-      ) as any; // Cast to fix type mismatch
+      );
 
       // Remove used one-time prekey
       const preKeyId = preKeyMessage.preKeyId();
@@ -306,7 +306,7 @@ export class SignalProtocol {
       throw new Error(`Unsupported message type: ${type}`);
     }
 
-    return new Uint8Array(plaintext);
+    return plaintext;
   }
 
   async hasSession(userId: string, deviceId: number): Promise<boolean> {
@@ -367,7 +367,7 @@ export class SignalProtocol {
       Date.now(),
       signedPreKey.keyPair.publicKey,
       signedPreKey.keyPair.privateKey,
-      Buffer.from(signedPreKey.signature)
+      signedPreKey.signature
     );
     await this.signedPreKeyStore.saveSignedPreKey(
       signedPreKey.keyId,

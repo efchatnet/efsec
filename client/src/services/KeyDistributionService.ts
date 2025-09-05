@@ -64,7 +64,7 @@ export class KeyDistributionService {
     senderKeyDistribution: Uint8Array
   ): Promise<void> {
     // Ensure we have a Signal session with the recipient
-    if (!await this.signalProtocol.hasSession(recipientId)) {
+    if (!await this.signalProtocol.hasSession(recipientId, 1)) { // deviceId = 1
       await this.establishSession(recipientId);
     }
 
@@ -78,7 +78,7 @@ export class KeyDistributionService {
 
     // Encrypt the message
     const plaintext = new TextEncoder().encode(JSON.stringify(message));
-    const ciphertext = await this.signalProtocol.encryptMessage(recipientId, plaintext);
+    const ciphertext = await this.signalProtocol.encryptMessage(recipientId, 1, plaintext); // deviceId = 1
 
     // Send via backend (as an encrypted DM)
     await this.sendEncryptedDM(recipientId, ciphertext.serialize());
@@ -92,7 +92,13 @@ export class KeyDistributionService {
     encryptedMessage: Uint8Array
   ): Promise<void> {
     // Decrypt the message
-    const plaintext = await this.signalProtocol.decryptMessage(senderId, encryptedMessage);
+    // Assuming PreKey message type for key distribution
+    const plaintext = await this.signalProtocol.decryptMessage(
+      senderId,
+      1, // deviceId
+      encryptedMessage,
+      2 // CiphertextMessageType.PreKey
+    );
     const messageStr = new TextDecoder().decode(plaintext);
     const message = JSON.parse(messageStr) as KeyDistributionMessage;
 
@@ -132,7 +138,7 @@ export class KeyDistributionService {
     groupId: string
   ): Promise<void> {
     // Ensure we have a Signal session
-    if (!await this.signalProtocol.hasSession(recipientId)) {
+    if (!await this.signalProtocol.hasSession(recipientId, 1)) { // deviceId = 1
       await this.establishSession(recipientId);
     }
 
@@ -143,7 +149,7 @@ export class KeyDistributionService {
     };
 
     const plaintext = new TextEncoder().encode(JSON.stringify(request));
-    const ciphertext = await this.signalProtocol.encryptMessage(recipientId, plaintext);
+    const ciphertext = await this.signalProtocol.encryptMessage(recipientId, 1, plaintext); // deviceId = 1
     
     await this.sendEncryptedDM(recipientId, ciphertext.serialize());
   }
@@ -156,7 +162,12 @@ export class KeyDistributionService {
     encryptedMessage: Uint8Array
   ): Promise<void> {
     // Decrypt the request
-    const plaintext = await this.signalProtocol.decryptMessage(senderId, encryptedMessage);
+    const plaintext = await this.signalProtocol.decryptMessage(
+      senderId,
+      1, // deviceId
+      encryptedMessage,
+      2 // CiphertextMessageType.PreKey
+    );
     const messageStr = new TextDecoder().decode(plaintext);
     const request = JSON.parse(messageStr);
 
@@ -207,6 +218,7 @@ export class KeyDistributionService {
     // Process the prekey bundle to establish session
     await this.signalProtocol.processPreKeyBundle(
       userId,
+      1, // deviceId - assuming single device
       {
         registrationId: bundle.registration_id,
         identityKey: new Uint8Array(bundle.identity_public_key),

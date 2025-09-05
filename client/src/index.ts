@@ -79,16 +79,16 @@ export class EfSecClient {
     
     // Save to IndexedDB
     await this.storage.saveIdentityKeys({
-      identityKeyPair: keys.identityKeyPair.serialize(),
+      identityKeyPair: keys.identityKeyPair.privateKey.serialize(),
       registrationId: keys.registrationId,
       signedPreKey: {
         keyId: keys.signedPreKey.keyId,
-        keyPair: keys.signedPreKey.keyPair.serialize(),
+        keyPair: keys.signedPreKey.keyPair.privateKey.serialize(),
         signature: keys.signedPreKey.signature
       },
       oneTimePreKeys: keys.oneTimePreKeys.map(pk => ({
         keyId: pk.keyId,
-        keyPair: pk.keyPair.serialize()
+        keyPair: pk.keyPair.privateKey.serialize()
       }))
     });
 
@@ -105,15 +105,15 @@ export class EfSecClient {
       },
       body: JSON.stringify({
         registration_id: keys.registrationId,
-        identity_public_key: Array.from(keys.identityKeyPair.getPublicKey().serialize()),
+        identity_public_key: Array.from(keys.identityKeyPair.publicKey.serialize()),
         signed_pre_key: {
           id: keys.signedPreKey.keyId,
-          public_key: Array.from(keys.signedPreKey.keyPair.getPublicKey().serialize()),
+          public_key: Array.from(keys.signedPreKey.keyPair.publicKey.serialize()),
           signature: Array.from(keys.signedPreKey.signature)
         },
         one_time_pre_keys: keys.oneTimePreKeys.map(pk => ({
           id: pk.keyId,
-          public_key: Array.from(pk.keyPair.getPublicKey().serialize())
+          public_key: Array.from(pk.keyPair.publicKey.serialize())
         }))
       })
     });
@@ -145,6 +145,7 @@ export class EfSecClient {
     // Process the prekey bundle to establish session
     await this.signal.processPreKeyBundle(
       userId,
+      1, // deviceId - assuming single device
       {
         registrationId: bundle.registration_id,
         identityKey: new Uint8Array(bundle.identity_public_key),
@@ -154,20 +155,24 @@ export class EfSecClient {
         preKeyId: bundle.one_time_pre_key?.id,
         preKeyPublic: bundle.one_time_pre_key ? 
           new Uint8Array(bundle.one_time_pre_key.public_key) : undefined
-      },
-      storedKeys.identityKeyPair,
-      storedKeys.registrationId
+      }
     );
   }
 
   async encryptDM(userId: string, message: string): Promise<Uint8Array> {
     const plaintext = new TextEncoder().encode(message);
-    const ciphertext = await this.signal.encryptMessage(userId, plaintext);
+    const ciphertext = await this.signal.encryptMessage(userId, 1, plaintext); // deviceId = 1
     return ciphertext.serialize();
   }
 
   async decryptDM(userId: string, ciphertext: Uint8Array): Promise<string> {
-    const plaintext = await this.signal.decryptMessage(userId, ciphertext);
+    // Assuming PreKey message type for initial messages
+    const plaintext = await this.signal.decryptMessage(
+      userId, 
+      1, // deviceId
+      ciphertext,
+      2 // CiphertextMessageType.PreKey
+    );
     return new TextDecoder().decode(plaintext);
   }
 

@@ -22,7 +22,6 @@
 
 import type { SignalManager } from '../protocol/SignalManager';
 import type { DMService } from '../services/DMService';
-import type { E2EMessageHandler } from '../hooks/useE2EMessaging';
 
 export interface E2EIntegrationConfig {
   apiUrl?: string;
@@ -153,7 +152,7 @@ export class E2EIntegration {
 
     try {
       if (isGroup) {
-        const groupManager = this.signalManager.getGroupManager();
+        const groupManager = (this.signalManager as any).groupProtocol;
         const encrypted = await groupManager.encryptMessage(recipientId, message);
         return {
           content: encrypted,
@@ -194,7 +193,7 @@ export class E2EIntegration {
 
     try {
       if (isGroup) {
-        const groupManager = this.signalManager.getGroupManager();
+        const groupManager = (this.signalManager as any).groupProtocol;
         // Assuming group message format
         const parsed = JSON.parse(envelope.content);
         return await groupManager.decryptMessage(

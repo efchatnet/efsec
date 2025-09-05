@@ -280,4 +280,11 @@ export class SignalManager {
   isReady(): boolean {
     return this.initialized;
   }
+
+  /**
+   * Check if a session exists with a user
+   */
+  async hasSession(userId: string, deviceId: number = 1): Promise<boolean> {
+    return await this.signal.hasSession(userId, deviceId);
+  }
 }

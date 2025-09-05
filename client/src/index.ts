@@ -23,6 +23,9 @@ export * from './stores';
 export * from './services/DMService';
 export * from './services/KeyDistributionService';
 
+// Component exports (SolidJS)
+export * from './components';
+
 export interface E2EClient {
   signal: SignalProtocol;
   groups: GroupProtocol;

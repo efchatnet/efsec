@@ -19,7 +19,11 @@ interface E2EContextType {
   hasSession: (userId: string) => boolean;
   createGroup: (groupId: string) => Promise<void>;
   encryptGroupMessage: (groupId: string, message: string) => Promise<Uint8Array>;
-  decryptGroupMessage: (groupId: string, senderId: string, ciphertext: Uint8Array) => Promise<string>;
+  decryptGroupMessage: (
+    groupId: string,
+    senderId: string,
+    ciphertext: Uint8Array
+  ) => Promise<string>;
 }
 
 const E2EContext = createContext<E2EContextType>();
@@ -39,7 +43,11 @@ export function E2EProvider(props: E2EProviderProps): JSX.Element {
   const [isEstablishingSession, setIsEstablishingSession] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
-  const initializeE2E = async (apiUrl: string, authToken: string, _userId: string): Promise<void> => {
+  const initializeE2E = async (
+    apiUrl: string,
+    authToken: string,
+    _userId: string
+  ): Promise<void> => {
     try {
       setError(null);
       const efsecClient = new EfSecClient(apiUrl);
@@ -48,13 +56,17 @@ export function E2EProvider(props: E2EProviderProps): JSX.Element {
       setIsInitialized(true);
       console.error('E2E encryption initialized with vodozemac WASM');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to initialize E2E encryption';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to initialize E2E encryption';
       setError(errorMessage);
       throw err;
     }
   };
 
-  const sendEncryptedMessage = async (recipientId: string, message: string): Promise<Uint8Array> => {
+  const sendEncryptedMessage = async (
+    recipientId: string,
+    message: string
+  ): Promise<Uint8Array> => {
     const currentClient = client();
     if (!currentClient) {
       throw new Error('E2E client not initialized');
@@ -62,12 +74,12 @@ export function E2EProvider(props: E2EProviderProps): JSX.Element {
 
     try {
       setIsEstablishingSession(true);
-      
+
       // Establish session if not exists
       if (!hasSession(recipientId)) {
         await currentClient.startDMSession(recipientId);
       }
-      
+
       const encryptedData = await currentClient.encryptDM(recipientId, message);
       return encryptedData;
     } finally {
@@ -86,8 +98,10 @@ export function E2EProvider(props: E2EProviderProps): JSX.Element {
 
   const hasSession = (_userId: string): boolean => {
     const currentClient = client();
-    if (!currentClient) {return false;}
-    
+    if (!currentClient) {
+      return false;
+    }
+
     // Check if we have a session with this user
     // This is a simplified check - in a real implementation we'd check the internal state
     return true; // Placeholder
@@ -111,7 +125,11 @@ export function E2EProvider(props: E2EProviderProps): JSX.Element {
     return await currentClient.encryptGroupMessage(groupId, message);
   };
 
-  const decryptGroupMessage = async (groupId: string, senderId: string, ciphertext: Uint8Array): Promise<string> => {
+  const decryptGroupMessage = async (
+    groupId: string,
+    senderId: string,
+    ciphertext: Uint8Array
+  ): Promise<string> => {
     const currentClient = client();
     if (!currentClient) {
       throw new Error('E2E client not initialized');
@@ -140,14 +158,10 @@ export function E2EProvider(props: E2EProviderProps): JSX.Element {
     hasSession,
     createGroup,
     encryptGroupMessage,
-    decryptGroupMessage
+    decryptGroupMessage,
   };
 
-  return (
-    <E2EContext.Provider value={value}>
-      {props.children}
-    </E2EContext.Provider>
-  );
+  return <E2EContext.Provider value={value}>{props.children}</E2EContext.Provider>;
 }
 
 export function useE2E(): E2EContextType {

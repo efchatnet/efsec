@@ -15,7 +15,7 @@
 
 /**
  * Graceful E2E Integration for efchat
- * 
+ *
  * This module provides a fail-safe integration layer that allows efchat
  * to continue working normally even if E2E encryption fails or is unavailable.
  */
@@ -77,7 +77,7 @@ export class E2EIntegration {
     } catch (error) {
       this.isAvailable = false;
       console.error('E2E encryption module not available, continuing without E2E', error);
-      
+
       if (this.config.onE2EStatusChange) {
         this.config.onE2EStatusChange(false);
       }
@@ -99,7 +99,7 @@ export class E2EIntegration {
     }
 
     this.initPromise = this.performInitialization(userId);
-    
+
     try {
       await this.initPromise;
       return true;
@@ -140,7 +140,7 @@ export class E2EIntegration {
       // E2E not available, send unencrypted
       return {
         content: message,
-        encrypted: false
+        encrypted: false,
       };
     }
 
@@ -150,21 +150,21 @@ export class E2EIntegration {
         return {
           content: btoa(String.fromCharCode(...encrypted)),
           encrypted: true,
-          encryptionData: { type: 'group' }
+          encryptionData: { type: 'group' },
         };
       } else {
         const encrypted = await this.client.encryptDM(recipientId, message);
         return {
           content: btoa(String.fromCharCode(...encrypted)),
           encrypted: true,
-          encryptionData: { type: 'dm' }
+          encryptionData: { type: 'dm' },
         };
       }
     } catch (error) {
       console.error('Encryption failed, sending unencrypted:', error);
       return {
         content: message,
-        encrypted: false
+        encrypted: false,
       };
     }
   }
@@ -242,7 +242,7 @@ export class E2EIntegration {
     return {
       available: this.isAvailable,
       initialized: this.client !== undefined,
-      hasSession: false // Would need to check specific session
+      hasSession: false, // Would need to check specific session
     };
   }
 
@@ -278,35 +278,28 @@ export class E2EWebSocketInterceptor {
       return message;
     }
 
-    const envelope = await this.e2e.encryptMessage(
-      recipientId,
-      message.content,
-      message.isGroup
-    );
+    const envelope = await this.e2e.encryptMessage(recipientId, message.content, message.isGroup);
 
     const result: WebSocketMessage = {
       ...message,
-      content: envelope.content
+      content: envelope.content,
     };
-    
+
     if (envelope.encrypted !== undefined) {
       result.encrypted = envelope.encrypted;
     }
-    
+
     if (envelope.encryptionData !== undefined) {
       result.encryptionData = envelope.encryptionData;
     }
-    
+
     return result;
   }
 
   /**
    * Process incoming message
    */
-  async processIncoming(
-    message: WebSocketMessage,
-    senderId?: string
-  ): Promise<WebSocketMessage> {
+  async processIncoming(message: WebSocketMessage, senderId?: string): Promise<WebSocketMessage> {
     // Only process encrypted messages
     if (!message.encrypted || !message.content || !senderId) {
       return message;
@@ -314,23 +307,19 @@ export class E2EWebSocketInterceptor {
 
     const envelope: MessageEnvelope = {
       content: message.content,
-      encrypted: message.encrypted
+      encrypted: message.encrypted,
     };
-    
+
     if (message.encryptionData !== undefined) {
       envelope.encryptionData = message.encryptionData;
     }
-    
-    const decrypted = await this.e2e.decryptMessage(
-      senderId,
-      envelope,
-      message.isGroup
-    );
+
+    const decrypted = await this.e2e.decryptMessage(senderId, envelope, message.isGroup);
 
     return {
       ...message,
       content: decrypted,
-      wasEncrypted: true
+      wasEncrypted: true,
     };
   }
 }

@@ -13,7 +13,7 @@ export interface E2EIndicatorProps {
   class?: string;
 }
 
-export const E2EIndicator: Component<E2EIndicatorProps> = (props) => {
+export const E2EIndicator: Component<E2EIndicatorProps> = props => {
   const getIndicatorColor = (): string => {
     if (!props.enabled) {
       return 'text-gray-400';
@@ -25,8 +25,8 @@ export const E2EIndicator: Component<E2EIndicatorProps> = (props) => {
     if (!props.enabled) {
       return 'E2E encryption not available';
     }
-    return props.sessionEstablished 
-      ? 'End-to-end encrypted conversation' 
+    return props.sessionEstablished
+      ? 'End-to-end encrypted conversation'
       : 'Setting up encrypted session...';
   };
 
@@ -38,16 +38,10 @@ export const E2EIndicator: Component<E2EIndicatorProps> = (props) => {
   };
 
   return (
-    <div 
-      class={`flex items-center gap-1 text-sm ${props.class ?? ''}`}
-      title={getTooltipText()}
-    >
+    <div class={`flex items-center gap-1 text-sm ${props.class ?? ''}`} title={getTooltipText()}>
       <span class={getIndicatorColor()}>{getIcon()}</span>
       <span class={`${getIndicatorColor()} font-medium`}>
-        {props.enabled ? 
-          (props.sessionEstablished ? 'E2E' : 'Setting up...') : 
-          'No encryption'
-        }
+        {props.enabled ? (props.sessionEstablished ? 'E2E' : 'Setting up...') : 'No encryption'}
       </span>
     </div>
   );

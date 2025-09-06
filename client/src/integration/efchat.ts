@@ -239,7 +239,7 @@ export class E2EIntegration {
    */
   async cleanup(): Promise<void> {
     if (this.client) {
-      this.client = undefined;
+      delete (this as any).client;
     }
   }
 }

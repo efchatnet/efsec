@@ -8,7 +8,7 @@
 // Component exports (SolidJS)
 export * from './components';
 
-import init, { 
+import wasmInit, { 
   EfSecAccount, 
   EfSecSession, 
   EfSecOutboundGroupSession, 
@@ -57,7 +57,7 @@ export class EfSecClient {
     this.userId = userId;
     
     // Initialize WASM module
-    await init();
+    await wasmInit();
     
     // Initialize IndexedDB for client-side key storage
     await this.initKeyStorage();

@@ -9,6 +9,8 @@ export default [
     ignores: [
       'dist/',
       'node_modules/',
+      'src/wasm/efsec_wasm.d.ts',
+      'src/wasm/efsec_wasm_bg.wasm.d.ts',
     ],
   },
   {

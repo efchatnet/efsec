@@ -251,7 +251,7 @@ export class E2EIntegration {
    */
   async cleanup(): Promise<void> {
     if (this.client) {
-      this.client = undefined;
+      delete this.client;
     }
   }
 }
@@ -284,12 +284,20 @@ export class E2EWebSocketInterceptor {
       message.isGroup
     );
 
-    return {
+    const result: WebSocketMessage = {
       ...message,
-      content: envelope.content,
-      encrypted: envelope.encrypted,
-      encryptionData: envelope.encryptionData
+      content: envelope.content
     };
+    
+    if (envelope.encrypted !== undefined) {
+      result.encrypted = envelope.encrypted;
+    }
+    
+    if (envelope.encryptionData !== undefined) {
+      result.encryptionData = envelope.encryptionData;
+    }
+    
+    return result;
   }
 
   /**
@@ -304,13 +312,18 @@ export class E2EWebSocketInterceptor {
       return message;
     }
 
+    const envelope: MessageEnvelope = {
+      content: message.content,
+      encrypted: message.encrypted
+    };
+    
+    if (message.encryptionData !== undefined) {
+      envelope.encryptionData = message.encryptionData;
+    }
+    
     const decrypted = await this.e2e.decryptMessage(
       senderId,
-      {
-        content: message.content,
-        encrypted: message.encrypted,
-        encryptionData: message.encryptionData
-      },
+      envelope,
       message.isGroup
     );
 

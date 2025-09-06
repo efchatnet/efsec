@@ -240,7 +240,7 @@ impl EfSecInboundGroupSession {
     ///
     /// Returns `JsValue` error if session key parsing fails
     #[wasm_bindgen(constructor)]
-    pub fn new(session_key: &str) -> Result<EfSecInboundGroupSession, JsValue> {
+    pub fn new(session_key: &str) -> Result<Self, JsValue> {
         let decoded = base64_decode(session_key)?;
         let key =
             SessionKey::from_bytes(&decoded).map_err(|e| JsValue::from_str(&e.to_string()))?;

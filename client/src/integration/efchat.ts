@@ -38,6 +38,18 @@ export interface MessageEnvelope {
   };
 }
 
+export interface WebSocketMessage {
+  type: string;
+  content?: string;
+  isGroup?: boolean;
+  encrypted?: boolean;
+  encryptionData?: {
+    type: string;
+    deviceId?: number;
+  };
+  wasEncrypted?: boolean;
+}
+
 /**
  * Safe E2E wrapper that gracefully falls back to unencrypted messaging
  */
@@ -60,11 +72,11 @@ export class E2EIntegration {
       // EfSecClient should always be available since it's our own implementation
       this.isAvailable = true;
       if (this.config.debug) {
-        console.log('E2E encryption module loaded successfully');
+        console.error('E2E encryption module loaded successfully');
       }
     } catch (error) {
       this.isAvailable = false;
-      console.warn('E2E encryption module not available, continuing without E2E', error);
+      console.error('E2E encryption module not available, continuing without E2E', error);
       
       if (this.config.onE2EStatusChange) {
         this.config.onE2EStatusChange(false);
@@ -92,7 +104,7 @@ export class E2EIntegration {
       await this.initPromise;
       return true;
     } catch (error) {
-      console.warn('E2E initialization failed, continuing without encryption', error);
+      console.error('E2E initialization failed, continuing without encryption', error);
       return false;
     }
   }
@@ -104,7 +116,7 @@ export class E2EIntegration {
     }
 
     // Initialize EfSec client
-    this.client = new EfSecClient(this.config.apiUrl || '/api/e2e');
+    this.client = new EfSecClient(this.config.apiUrl ?? '/api/e2e');
     await this.client.init(token);
 
     if (this.config.onE2EStatusChange) {
@@ -112,7 +124,7 @@ export class E2EIntegration {
     }
 
     if (this.config.debug) {
-      console.log('E2E encryption initialized for user:', userId);
+      console.error('E2E encryption initialized for user:', userId);
     }
   }
 
@@ -149,7 +161,7 @@ export class E2EIntegration {
         };
       }
     } catch (error) {
-      console.warn('Encryption failed, sending unencrypted:', error);
+      console.error('Encryption failed, sending unencrypted:', error);
       return {
         content: message,
         encrypted: false
@@ -189,7 +201,7 @@ export class E2EIntegration {
         return await this.client.decryptDM(senderId, bytes);
       }
     } catch (error) {
-      console.warn('Decryption failed, showing encrypted content:', error);
+      console.error('Decryption failed, showing encrypted content:', error);
       return envelope.content;
     }
   }
@@ -199,7 +211,7 @@ export class E2EIntegration {
    */
   async initiateDM(peerId: string): Promise<string | null> {
     if (!this.client) {
-      console.warn('E2E client not available');
+      console.error('E2E client not available');
       return null;
     }
 
@@ -239,7 +251,7 @@ export class E2EIntegration {
    */
   async cleanup(): Promise<void> {
     if (this.client) {
-      delete (this as any).client;
+      this.client = undefined;
     }
   }
 }
@@ -258,9 +270,9 @@ export class E2EWebSocketInterceptor {
    * Process outgoing message
    */
   async processOutgoing(
-    message: any,
+    message: WebSocketMessage,
     recipientId?: string
-  ): Promise<any> {
+  ): Promise<WebSocketMessage> {
     // Only process text messages
     if (message.type !== 'message' || !message.content || !recipientId) {
       return message;
@@ -284,9 +296,9 @@ export class E2EWebSocketInterceptor {
    * Process incoming message
    */
   async processIncoming(
-    message: any,
+    message: WebSocketMessage,
     senderId?: string
-  ): Promise<any> {
+  ): Promise<WebSocketMessage> {
     // Only process encrypted messages
     if (!message.encrypted || !message.content || !senderId) {
       return message;

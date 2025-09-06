@@ -108,13 +108,13 @@ export const EncryptedChat: Component<EncryptedChatProps> = (props) => {
 
   const getMessageContent = (msg: EncryptedMessage) => {
     if (msg.isOutgoing) {
-      return msg.decrypted || '[Encrypted]';
+      return msg.decrypted ?? '[Encrypted]';
     }
-    return decryptedMessages().get(msg.id) || 'Decrypting...';
+    return decryptedMessages().get(msg.id) ?? 'Decrypting...';
   };
 
   return (
-    <div class={`flex flex-col h-full ${props.class || ''}`}>
+    <div class={`flex flex-col h-full ${props.class ?? ''}`}>
       {/* Header with E2E indicator */}
       <div class="flex items-center justify-between p-4 border-b">
         <div class="flex items-center gap-3">

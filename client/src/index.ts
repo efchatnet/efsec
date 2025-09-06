@@ -23,12 +23,14 @@ interface KeyBundle {
 interface StoredSession {
   session: EfSecSession;
   sessionId: string;
+  [key: string]: unknown;
 }
 
 interface StoredGroupSession {
   outbound?: EfSecOutboundGroupSession;
   inbound?: EfSecInboundGroupSession;
   sessionId: string;
+  [key: string]: unknown;
 }
 
 export class EfSecClient {
@@ -477,19 +479,28 @@ export class EfSecClient {
   // Public method to get identity keys for registration
   getIdentityKeys(): string {
     this.ensureInitialized();
-    return this.account!.identity_keys;
+    if (!this.account) {
+      throw new Error('Account not available');
+    }
+    return this.account.identity_keys;
   }
 
   // Public method to get one-time keys for upload
   getOneTimeKeys(): string {
     this.ensureInitialized();
-    return this.account!.one_time_keys();
+    if (!this.account) {
+      throw new Error('Account not available');
+    }
+    return this.account.one_time_keys();
   }
 
   // Generate more one-time keys when running low
   generateOneTimeKeys(count: number = 50): void {
     this.ensureInitialized();
-    this.account!.generate_one_time_keys(count);
+    if (!this.account) {
+      throw new Error('Account not available');
+    }
+    this.account.generate_one_time_keys(count);
   }
 }
 

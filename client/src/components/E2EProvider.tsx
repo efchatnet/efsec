@@ -38,14 +38,14 @@ export function E2EProvider(props: E2EProviderProps) {
   const [isEstablishingSession, setIsEstablishingSession] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
-  const initializeE2E = async (apiUrl: string, authToken: string, userId: string) => {
+  const initializeE2E = async (apiUrl: string, authToken: string, _userId: string) => {
     try {
       setError(null);
       const efsecClient = new EfSecClient(apiUrl);
       await efsecClient.init(authToken);
       setClient(efsecClient);
       setIsInitialized(true);
-      console.log('E2E encryption initialized with vodozemac WASM');
+      console.error('E2E encryption initialized with vodozemac WASM');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to initialize E2E encryption';
       setError(errorMessage);
@@ -83,7 +83,7 @@ export function E2EProvider(props: E2EProviderProps) {
     return await currentClient.decryptDM(senderId, encryptedData);
   };
 
-  const hasSession = (userId: string): boolean => {
+  const hasSession = (_userId: string): boolean => {
     const currentClient = client();
     if (!currentClient) {return false;}
     

@@ -167,7 +167,7 @@ export class E2EStorage {
 
     return new Promise((resolve, reject) => {
       const request = store.get(groupId);
-      request.onsuccess = () => resolve(request.result || null);
+      request.onsuccess = () => resolve(request.result ?? null);
       request.onerror = () => reject(request.error);
     });
   }

@@ -32,6 +32,7 @@ export interface E2EProviderProps {
   autoInitialize?: boolean;
 }
 
+// eslint-disable-next-line max-lines-per-function
 export function E2EProvider(props: E2EProviderProps): JSX.Element {
   const [client, setClient] = createSignal<EfSecClient | null>(null);
   const [isInitialized, setIsInitialized] = createSignal(false);

@@ -29,6 +29,7 @@ export interface EncryptedChatProps {
   class?: string;
 }
 
+// eslint-disable-next-line max-lines-per-function
 export const EncryptedChat: Component<EncryptedChatProps> = (props) => {
   const e2e = useE2E();
   const [inputMessage, setInputMessage] = createSignal('');

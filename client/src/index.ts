@@ -5,6 +5,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
+/* eslint-disable max-lines */
 // Component exports (SolidJS)
 export * from './components';
 

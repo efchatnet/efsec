@@ -34,6 +34,13 @@ interface StoredGroupSession {
   [key: string]: unknown;
 }
 
+// Helper function for cryptographically secure ID generation
+function generateSecureId(): string {
+  const array = new Uint32Array(2);
+  crypto.getRandomValues(array);
+  return array[0].toString() + array[1].toString();
+}
+
 export class EfSecClient {
   private apiUrl: string;
   private authToken?: string;
@@ -203,7 +210,7 @@ export class EfSecClient {
         })),
         // PostgreSQL: Signed prekey (rotated periodically)
         signedPreKey: {
-          keyId: Date.now().toString(),
+          keyId: generateSecureId(),
           publicKey: identityKeys.curve25519, // PUBLIC KEY - stored in PostgreSQL
           signature: identityKeys.ed25519, // PUBLIC SIGNATURE - stored in PostgreSQL
         },

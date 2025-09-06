@@ -18,15 +18,22 @@ pub fn main() {
     console_error_panic_hook::set_once();
 }
 
-/// WebAssembly wrapper for vodozemac Account
+/// WebAssembly wrapper for `vodozemac` `Account`
 #[wasm_bindgen]
 pub struct EfSecAccount {
     inner: Account,
 }
 
+impl Default for EfSecAccount {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl EfSecAccount {
     /// Create a new E2E account
+    #[must_use]
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self {
@@ -35,6 +42,7 @@ impl EfSecAccount {
     }
 
     /// Get account identity keys as JSON
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn identity_keys(&self) -> String {
         let keys = self.inner.identity_keys();
@@ -48,12 +56,17 @@ impl EfSecAccount {
     }
 
     /// Get one-time keys as JSON
+    #[must_use]
     #[wasm_bindgen]
     pub fn one_time_keys(&self) -> String {
         serde_json::to_string(&self.inner.one_time_keys()).unwrap_or_default()
     }
 
     /// Create outbound session with another user
+    ///
+    /// # Errors
+    ///
+    /// Returns `JsValue` error if key parsing fails
     #[wasm_bindgen]
     pub fn create_outbound_session(
         &self,
@@ -73,6 +86,10 @@ impl EfSecAccount {
     }
 
     /// Create inbound session from pre-key message
+    ///
+    /// # Errors
+    ///
+    /// Returns `JsValue` error if message parsing or session creation fails
     #[wasm_bindgen]
     pub fn create_inbound_session(
         &mut self,
@@ -104,12 +121,14 @@ impl EfSecAccount {
 /// Result type for inbound session creation
 #[wasm_bindgen]
 pub struct EfSecInboundResult {
+    #[allow(dead_code)]
     session: EfSecSession,
     plaintext: String,
 }
 
 #[wasm_bindgen]
 impl EfSecInboundResult {
+    #[must_use]
     #[wasm_bindgen(getter)]
     pub fn plaintext(&self) -> String {
         self.plaintext.clone()
@@ -125,6 +144,7 @@ pub struct EfSecSession {
 #[wasm_bindgen]
 impl EfSecSession {
     /// Encrypt a message
+    #[must_use]
     #[wasm_bindgen]
     pub fn encrypt(&mut self, plaintext: &str) -> String {
         let message = self.inner.encrypt(plaintext.as_bytes());
@@ -133,6 +153,10 @@ impl EfSecSession {
     }
 
     /// Decrypt a message
+    ///
+    /// # Errors
+    ///
+    /// Returns `JsValue` error if decryption or string conversion fails
     #[wasm_bindgen]
     pub fn decrypt(&mut self, ciphertext: &str) -> Result<String, JsValue> {
         let decoded = base64_decode(ciphertext)?;
@@ -149,21 +173,29 @@ impl EfSecSession {
     }
 
     /// Get session ID
+    #[must_use]
     #[wasm_bindgen]
     pub fn session_id(&self) -> String {
         self.inner.session_id()
     }
 }
 
-/// WebAssembly wrapper for vodozemac GroupSession (group messaging)
+/// WebAssembly wrapper for `vodozemac` `GroupSession` (group messaging)
 #[wasm_bindgen]
 pub struct EfSecOutboundGroupSession {
     inner: GroupSession,
 }
 
+impl Default for EfSecOutboundGroupSession {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl EfSecOutboundGroupSession {
     /// Create new outbound group session
+    #[must_use]
     #[wasm_bindgen(constructor)]
     pub fn new() -> Self {
         Self {
@@ -172,6 +204,7 @@ impl EfSecOutboundGroupSession {
     }
 
     /// Encrypt group message
+    #[must_use]
     #[wasm_bindgen]
     pub fn encrypt(&mut self, plaintext: &str) -> String {
         let message = self.inner.encrypt(plaintext.as_bytes());
@@ -179,19 +212,21 @@ impl EfSecOutboundGroupSession {
     }
 
     /// Get session key for sharing with group members
+    #[must_use]
     #[wasm_bindgen]
     pub fn session_key(&self) -> String {
         base64_encode(&self.inner.session_key().to_bytes())
     }
 
     /// Get session ID
+    #[must_use]
     #[wasm_bindgen]
     pub fn session_id(&self) -> String {
         self.inner.session_id()
     }
 }
 
-/// WebAssembly wrapper for vodozemac InboundGroupSession
+/// WebAssembly wrapper for `vodozemac` `InboundGroupSession`
 #[wasm_bindgen]
 pub struct EfSecInboundGroupSession {
     inner: InboundGroupSession,
@@ -200,6 +235,10 @@ pub struct EfSecInboundGroupSession {
 #[wasm_bindgen]
 impl EfSecInboundGroupSession {
     /// Create inbound group session from session key
+    ///
+    /// # Errors
+    ///
+    /// Returns `JsValue` error if session key parsing fails
     #[wasm_bindgen(constructor)]
     pub fn new(session_key: &str) -> Result<EfSecInboundGroupSession, JsValue> {
         let decoded = base64_decode(session_key)?;
@@ -211,6 +250,10 @@ impl EfSecInboundGroupSession {
     }
 
     /// Decrypt group message
+    ///
+    /// # Errors
+    ///
+    /// Returns `JsValue` error if decryption or string conversion fails
     #[wasm_bindgen]
     pub fn decrypt(&mut self, ciphertext: &str) -> Result<String, JsValue> {
         let decoded = base64_decode(ciphertext)?;
@@ -226,6 +269,7 @@ impl EfSecInboundGroupSession {
     }
 
     /// Get session ID
+    #[must_use]
     #[wasm_bindgen]
     pub fn session_id(&self) -> String {
         self.inner.session_id()
@@ -233,6 +277,7 @@ impl EfSecInboundGroupSession {
 }
 
 // Helper functions for base64 encoding/decoding
+#[allow(clippy::cast_possible_truncation)]
 fn base64_encode(data: &[u8]) -> String {
     use js_sys::Uint8Array;
     use web_sys::window;
@@ -246,7 +291,7 @@ fn base64_encode(data: &[u8]) -> String {
             &uint8_array
                 .to_vec()
                 .iter()
-                .map(|&b| b as u16)
+                .map(|&b| u16::from(b))
                 .collect::<Vec<_>>(),
         ))
         .unwrap()

@@ -1,0 +1,34 @@
+additional_cargo_args = ["--all-features"]
+exclude_re = [
+  # Coverage of debug & display functions is not relevant
+  "impl Debug",
+  "impl Display",
+  # Replacing + with * makes no logical difference here
+  "src/olm/messages/message\\.rs.*replace \\+ with \\* in <impl TryFrom for Message>::try_from",
+  # Due to the bit shifting | and ^ are equivalent here
+  "replace \\| with \\^ in SasBytes::bytes_to_decimal",
+  # Drop & Zeroize implementations perform zeroisation which cannot be tested in Rust
+  "impl (Drop|Zeroize)",
+  # These cause olm/account tests to hang
+  "RemoteChainKey::chain_index",
+  "RemoteChainKey::advance",
+  # Intentionally returns Ok(()) in all cases
+  "replace Cipher::verify_truncated_mac -> Result<\\(\\), MacError> with Ok\\(\\(\\)\\)",
+  # The constant value can't really be tested
+  "src/olm/account/one_time_keys\\.rs.*replace \\* with \\+$",
+  # Not testable because the latest ratchet is cloned from the initial one when it's past the requested index
+  "replace < with == in InboundGroupSession::find_ratchet",
+  # Causes an infinite loop
+  "replace -= with \\+= in Ratchet::advance_to",
+  # Causes an infinite loop
+  "replace -= with /= in Ratchet::advance_to",
+  # Replacing < with <= makes no logical difference here since we have a ==
+  # branch before the < branch.
+  "^src/megolm/inbound_group_session.rs.*replace < with <= in InboundGroupSession::find_ratchet$",
+  # Replacing < with <= makes no logical difference here since advancing a
+  # ratchet 0 times makes no difference.
+  "^src/megolm/inbound_group_session.rs:309:45: replace < with <= in InboundGroupSession::get_cipher_at$",
+  # This test successfully fails if we replace the condition manually, under
+  # cargo-mutants it still times out.
+  "src/utilities/mod.rs:118:13: replace > with >= in required_encoded_space_unsigned",
+]

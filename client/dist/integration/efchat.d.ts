@@ -8,7 +8,7 @@ export interface MessageEnvelope {
     content: string;
     encrypted?: boolean;
     encryptionData?: {
-        type: number;
+        type: string;
         deviceId?: number;
     };
 }
@@ -16,8 +16,7 @@ export interface MessageEnvelope {
  * Safe E2E wrapper that gracefully falls back to unencrypted messaging
  */
 export declare class E2EIntegration {
-    private signalManager?;
-    private dmService?;
+    private client?;
     private isAvailable;
     private config;
     private initPromise?;

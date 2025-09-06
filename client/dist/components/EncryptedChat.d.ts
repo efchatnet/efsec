@@ -3,8 +3,7 @@ export interface EncryptedMessage {
     id: string;
     senderId: string;
     recipientId: string;
-    ciphertext: string;
-    messageType: number;
+    ciphertext: Uint8Array | string;
     timestamp: Date;
     decrypted?: string;
     isOutgoing?: boolean;

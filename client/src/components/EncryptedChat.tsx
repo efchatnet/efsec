@@ -13,8 +13,7 @@ export interface EncryptedMessage {
   id: string;
   senderId: string;
   recipientId: string;
-  ciphertext: string;
-  messageType: number;
+  ciphertext: Uint8Array | string;
   timestamp: Date;
   decrypted?: string;
   isOutgoing?: boolean;
@@ -40,7 +39,7 @@ export const EncryptedChat: Component<EncryptedChatProps> = (props) => {
   // Check session status
   createEffect(async () => {
     if (e2e.isInitialized()) {
-      const hasSession = await e2e.hasSession(props.recipientId);
+      const hasSession = e2e.hasSession(props.recipientId);
       setSessionEstablished(hasSession);
     }
   });
@@ -50,10 +49,13 @@ export const EncryptedChat: Component<EncryptedChatProps> = (props) => {
     props.messages.forEach(async (msg) => {
       if (!msg.isOutgoing && msg.ciphertext && !decryptedMessages().has(msg.id)) {
         try {
+          const cipherData = typeof msg.ciphertext === 'string' 
+            ? new TextEncoder().encode(msg.ciphertext)
+            : msg.ciphertext;
+            
           const decrypted = await e2e.decryptMessage(
             msg.senderId,
-            msg.ciphertext,
-            msg.messageType
+            cipherData
           );
           
           setDecryptedMessages(prev => {
@@ -81,15 +83,14 @@ export const EncryptedChat: Component<EncryptedChatProps> = (props) => {
     
     setSending(true);
     try {
-      const result = await e2e.sendEncryptedMessage(props.recipientId, message);
+      const encryptedData = await e2e.sendEncryptedMessage(props.recipientId, message);
       
       const encryptedMsg: EncryptedMessage = {
-        id: result.message_id,
+        id: crypto.randomUUID(),
         senderId: props.currentUserId,
         recipientId: props.recipientId,
-        ciphertext: result.ciphertext,
-        messageType: result.message_type,
-        timestamp: new Date(result.timestamp),
+        ciphertext: encryptedData,
+        timestamp: new Date(),
         decrypted: message,
         isOutgoing: true
       };
@@ -107,7 +108,7 @@ export const EncryptedChat: Component<EncryptedChatProps> = (props) => {
 
   const getMessageContent = (msg: EncryptedMessage) => {
     if (msg.isOutgoing) {
-      return msg.decrypted || msg.ciphertext;
+      return msg.decrypted || '[Encrypted]';
     }
     return decryptedMessages().get(msg.id) || 'Decrypting...';
   };

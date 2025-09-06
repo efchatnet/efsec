@@ -13,6 +13,13 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 /**
+ * Graceful E2E Integration for efchat
+ *
+ * This module provides a fail-safe integration layer that allows efchat
+ * to continue working normally even if E2E encryption fails or is unavailable.
+ */
+import { EfSecClient } from '../index';
+/**
  * Safe E2E wrapper that gracefully falls back to unencrypted messaging
  */
 export class E2EIntegration {
@@ -26,8 +33,7 @@ export class E2EIntegration {
      */
     async checkAvailability() {
         try {
-            // Dynamically import to prevent hard dependency
-            const { SignalManager, DMService } = await import('../index');
+            // EfSecClient should always be available since it's our own implementation
             this.isAvailable = true;
             if (this.config.debug) {
                 console.log('E2E encryption module loaded successfully');
@@ -51,7 +57,7 @@ export class E2EIntegration {
         // Prevent multiple initializations
         if (this.initPromise) {
             await this.initPromise;
-            return this.signalManager !== undefined;
+            return this.client !== undefined;
         }
         this.initPromise = this.performInitialization(userId);
         try {
@@ -68,20 +74,9 @@ export class E2EIntegration {
         if (!token) {
             throw new Error('No auth token for E2E');
         }
-        const { SignalManager, DMService } = await import('../index');
-        // Initialize Signal Manager
-        this.signalManager = new SignalManager({
-            apiUrl: this.config.apiUrl || '/api/e2e',
-            authToken: token,
-            userId
-        });
-        await this.signalManager.initialize();
-        // Initialize DM Service
-        this.dmService = new DMService({
-            apiUrl: this.config.apiUrl || '/api/e2e',
-            getAuthToken: this.config.getAuthToken,
-            signalManager: this.signalManager
-        });
+        // Initialize EfSec client
+        this.client = new EfSecClient(this.config.apiUrl || '/api/e2e');
+        await this.client.init(token);
         if (this.config.onE2EStatusChange) {
             this.config.onE2EStatusChange(true);
         }
@@ -93,7 +88,7 @@ export class E2EIntegration {
      * Encrypt message if E2E is available, otherwise return plaintext
      */
     async encryptMessage(recipientId, message, isGroup = false) {
-        if (!this.signalManager) {
+        if (!this.client) {
             // E2E not available, send unencrypted
             return {
                 content: message,
@@ -102,22 +97,19 @@ export class E2EIntegration {
         }
         try {
             if (isGroup) {
-                const groupManager = this.signalManager.groupProtocol;
-                const encrypted = await groupManager.encryptMessage(recipientId, message);
+                const encrypted = await this.client.encryptGroupMessage(recipientId, message);
                 return {
-                    content: encrypted,
-                    encrypted: true
+                    content: btoa(String.fromCharCode(...encrypted)),
+                    encrypted: true,
+                    encryptionData: { type: 'group' }
                 };
             }
             else {
-                const encrypted = await this.signalManager.encryptMessage(recipientId, message);
+                const encrypted = await this.client.encryptDM(recipientId, message);
                 return {
-                    content: JSON.stringify(encrypted),
+                    content: btoa(String.fromCharCode(...encrypted)),
                     encrypted: true,
-                    encryptionData: {
-                        type: encrypted.type,
-                        deviceId: encrypted.deviceId
-                    }
+                    encryptionData: { type: 'dm' }
                 };
             }
         }
@@ -134,19 +126,23 @@ export class E2EIntegration {
      */
     async decryptMessage(senderId, envelope, isGroup = false) {
         // If not encrypted or E2E not available, return as-is
-        if (!envelope.encrypted || !this.signalManager) {
+        if (!envelope.encrypted || !this.client) {
             return envelope.content;
         }
         try {
-            if (isGroup) {
-                const groupManager = this.signalManager.groupProtocol;
-                // Assuming group message format
-                const parsed = JSON.parse(envelope.content);
-                return await groupManager.decryptMessage(parsed.groupId, senderId, parsed.message);
+            // Convert base64 back to Uint8Array
+            const binaryString = atob(envelope.content);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            if (isGroup && envelope.encryptionData?.type === 'group') {
+                return await this.client.decryptGroupMessage(senderId, // Assuming this is groupId
+                senderId, 0, // device ID placeholder
+                bytes);
             }
             else {
-                const encryptedData = JSON.parse(envelope.content);
-                return await this.signalManager.decryptMessage(senderId, encryptedData.encrypted, encryptedData.type);
+                return await this.client.decryptDM(senderId, bytes);
             }
         }
         catch (error) {
@@ -158,13 +154,13 @@ export class E2EIntegration {
      * Initiate DM if E2E is available
      */
     async initiateDM(peerId) {
-        if (!this.dmService) {
-            console.warn('DM service not available');
+        if (!this.client) {
+            console.warn('E2E client not available');
             return null;
         }
         try {
-            const dmSpace = await this.dmService.initiateDM(peerId);
-            return dmSpace.spaceId;
+            await this.client.startDMSession(peerId);
+            return `dm_${peerId}`;
         }
         catch (error) {
             console.error('Failed to initiate E2E DM:', error);
@@ -175,7 +171,7 @@ export class E2EIntegration {
      * Check if E2E is ready
      */
     isE2EReady() {
-        return this.isAvailable && this.signalManager !== undefined;
+        return this.isAvailable && this.client !== undefined;
     }
     /**
      * Get E2E status
@@ -183,7 +179,7 @@ export class E2EIntegration {
     getStatus() {
         return {
             available: this.isAvailable,
-            initialized: this.signalManager !== undefined,
+            initialized: this.client !== undefined,
             hasSession: false // Would need to check specific session
         };
     }
@@ -191,10 +187,8 @@ export class E2EIntegration {
      * Cleanup E2E resources
      */
     async cleanup() {
-        if (this.signalManager) {
-            await this.signalManager.cleanup();
-            this.signalManager = undefined;
-            this.dmService = undefined;
+        if (this.client) {
+            this.client = undefined;
         }
     }
 }

@@ -1,13 +1,17 @@
 import { JSX } from 'solid-js';
+import { EfSecClient } from '../index';
 interface E2EContextType {
-    signalManager: null;
+    client: EfSecClient | null;
     isInitialized: () => boolean;
     isEstablishingSession: () => boolean;
     error: () => string | null;
     initializeE2E: (apiUrl: string, authToken: string, userId: string) => Promise<void>;
-    sendEncryptedMessage: (recipientId: string, message: string) => Promise<any>;
-    decryptMessage: (senderId: string, encryptedData: string, messageType: number) => Promise<string>;
-    hasSession: (userId: string) => Promise<boolean>;
+    sendEncryptedMessage: (recipientId: string, message: string) => Promise<Uint8Array>;
+    decryptMessage: (senderId: string, encryptedData: Uint8Array) => Promise<string>;
+    hasSession: (userId: string) => boolean;
+    createGroup: (groupId: string) => Promise<void>;
+    encryptGroupMessage: (groupId: string, message: string) => Promise<Uint8Array>;
+    decryptGroupMessage: (groupId: string, senderId: string, ciphertext: Uint8Array) => Promise<string>;
 }
 export interface E2EProviderProps {
     children: JSX.Element;

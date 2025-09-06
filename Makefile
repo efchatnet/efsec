@@ -5,7 +5,7 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-.PHONY: build-all build-wasm build-client test-all test-wasm test-client clean install deps-rust deps-node verify
+.PHONY: build-all build-wasm build-client test-all test-wasm test-client clean install deps-rust deps-node verify lint lint-rust lint-typescript
 
 # Default target
 all: build-all
@@ -15,6 +15,24 @@ verify:
 	@echo "Verifying vodozemac source authenticity..."
 	@cd vodozemac && git remote -v | grep -q "github.com/matrix-org/vodozemac" || (echo "ERROR: vodozemac must be from official Matrix repository" && exit 1)
 	@echo "✓ vodozemac source verified"
+
+# Code quality checks (linting, formatting)
+lint: lint-rust lint-typescript
+	@echo "✓ All code quality checks passed"
+
+# Rust linting and formatting
+lint-rust:
+	@echo "Running Rust code quality checks..."
+	@source ${HOME}/.cargo/env || true
+	@cd efsec-wasm && cargo fmt -- --check
+	@cd efsec-wasm && cargo clippy --target wasm32-unknown-unknown -- -D warnings -W clippy::pedantic
+	@echo "✓ Rust code quality checks passed"
+
+# TypeScript linting and formatting  
+lint-typescript:
+	@echo "Running TypeScript code quality checks..."
+	@cd client && npm run quality
+	@echo "✓ TypeScript code quality checks passed"
 
 # Install all dependencies
 install: deps-rust deps-node
@@ -35,18 +53,29 @@ deps-node:
 	@cd client && npm install
 
 # Build everything (WASM + TypeScript)
-build-all: verify build-wasm build-client
+build-all: verify lint build-wasm build-client
 	@echo "EfSec E2E encryption library build complete"
+	@echo "✓ Code quality checks passed"
 	@echo "✓ WASM binaries ready in efsec-wasm/pkg/"
 	@echo "✓ TypeScript client ready in client/dist/"
 
-# Build Rust to WebAssembly
+# Build Rust to WebAssembly for multiple targets
 build-wasm:
-	@echo "Building vodozemac (Rust) to WebAssembly..."
+	@echo "Building vodozemac (Rust) to WebAssembly for multiple targets..."
 	@source ${HOME}/.cargo/env || true
-	@cd efsec-wasm && wasm-pack build --target web --out-dir pkg
-	@echo "WASM build complete"
-	@ls -la efsec-wasm/pkg/
+	@echo "Building for web target (iOS Safari, Android Chrome, PWAs)..."
+	@cd efsec-wasm && wasm-pack build --target web --out-dir pkg-web
+	@echo "Building for bundler target (React Native, Electron)..."
+	@cd efsec-wasm && wasm-pack build --target bundler --out-dir pkg-bundler
+	@echo "Building for nodejs target (SSR)..."
+	@cd efsec-wasm && wasm-pack build --target nodejs --out-dir pkg-nodejs
+	@echo "Multi-target WASM build complete"
+	@echo "Web target (mobile compatible):"
+	@ls -la efsec-wasm/pkg-web/
+	@echo "Bundler target (React Native compatible):"
+	@ls -la efsec-wasm/pkg-bundler/
+	@echo "Node.js target (SSR compatible):"
+	@ls -la efsec-wasm/pkg-nodejs/
 
 # Build TypeScript client
 build-client:
@@ -72,7 +101,7 @@ test-client:
 # Clean build artifacts
 clean:
 	@echo "Cleaning EfSec build artifacts..."
-	@rm -rf efsec-wasm/pkg
+	@rm -rf efsec-wasm/pkg-web efsec-wasm/pkg-bundler efsec-wasm/pkg-nodejs efsec-wasm/pkg
 	@rm -rf client/dist
 	@rm -rf client/node_modules/.cache
 	@echo "Clean complete"

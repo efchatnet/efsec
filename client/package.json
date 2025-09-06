@@ -10,10 +10,16 @@
   ],
   "scripts": {
     "build": "tsc && npm run copy-wasm",
-    "copy-wasm": "mkdir -p dist/wasm && cp -r ../efsec-wasm/pkg/* dist/wasm/",
+    "copy-wasm": "mkdir -p dist/wasm/web dist/wasm/bundler dist/wasm/nodejs && if [ -d '../efsec-wasm/pkg-web' ]; then cp -r ../efsec-wasm/pkg-web/* dist/wasm/web/; fi && if [ -d '../efsec-wasm/pkg-bundler' ]; then cp -r ../efsec-wasm/pkg-bundler/* dist/wasm/bundler/; fi && if [ -d '../efsec-wasm/pkg-nodejs' ]; then cp -r ../efsec-wasm/pkg-nodejs/* dist/wasm/nodejs/; fi || cp -r ../efsec-wasm/pkg/* dist/wasm/web/",
     "test": "jest",
     "dev": "tsc --watch",
-    "prepublishOnly": "npm run build"
+    "lint": "eslint src/ --ext .ts,.tsx",
+    "lint:fix": "eslint src/ --ext .ts,.tsx --fix",
+    "format": "prettier --write src/",
+    "format:check": "prettier --check src/",
+    "typecheck": "tsc --noEmit --strict",
+    "quality": "npm run typecheck && npm run lint && npm run format:check",
+    "prepublishOnly": "npm run quality && npm run build"
   },
   "repository": {
     "type": "git",
@@ -40,7 +46,11 @@
   "devDependencies": {
     "@types/jest": "^29.5.11",
     "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^9.0.0",
     "jest": "^29.7.0",
+    "prettier": "^3.0.0",
     "ts-jest": "^29.1.1",
     "typescript": "^5.3.3"
   },

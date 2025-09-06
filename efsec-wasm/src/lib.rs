@@ -13,6 +13,7 @@ use vodozemac::olm::{Account, OlmMessage, PreKeyMessage, Session, SessionConfig}
 use vodozemac::Curve25519PublicKey;
 use wasm_bindgen::prelude::*;
 
+/// Initialize the WASM module with panic hook for better debugging
 #[wasm_bindgen(start)]
 pub fn main() {
     console_error_panic_hook::set_once();

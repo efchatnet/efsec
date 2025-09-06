@@ -51,14 +51,16 @@ impl EfSecAccount {
         identity_key: &str,
         one_time_key: &str,
     ) -> Result<EfSecSession, JsValue> {
-        let identity_key: Curve25519PublicKey = serde_json::from_str(identity_key)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        let one_time_key: Curve25519PublicKey = serde_json::from_str(one_time_key)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let identity_key: Curve25519PublicKey =
+            serde_json::from_str(identity_key).map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let one_time_key: Curve25519PublicKey =
+            serde_json::from_str(one_time_key).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-        let session = self
-            .inner
-            .create_outbound_session(SessionConfig::version_1(), identity_key, one_time_key);
+        let session = self.inner.create_outbound_session(
+            SessionConfig::version_1(),
+            identity_key,
+            one_time_key,
+        );
 
         Ok(EfSecSession { inner: session })
     }
@@ -68,17 +70,19 @@ impl EfSecAccount {
         identity_key: &str,
         message: &str,
     ) -> Result<EfSecSession, JsValue> {
-        let identity_key: Curve25519PublicKey = serde_json::from_str(identity_key)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        let message: PreKeyMessage = serde_json::from_str(message)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let identity_key: Curve25519PublicKey =
+            serde_json::from_str(identity_key).map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let message: PreKeyMessage =
+            serde_json::from_str(message).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let result = self
             .inner
             .create_inbound_session(identity_key, &message)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-        Ok(EfSecSession { inner: result.session })
+        Ok(EfSecSession {
+            inner: result.session,
+        })
     }
 }
 
@@ -96,15 +100,15 @@ impl EfSecSession {
     }
 
     pub fn decrypt(&mut self, message: &str) -> Result<String, JsValue> {
-        let message: OlmMessage = serde_json::from_str(message)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let message: OlmMessage =
+            serde_json::from_str(message).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-        let plaintext_bytes = self.inner
+        let plaintext_bytes = self
+            .inner
             .decrypt(&message)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-        String::from_utf8(plaintext_bytes)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        String::from_utf8(plaintext_bytes).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 }
 
@@ -143,8 +147,8 @@ pub struct EfSecInboundGroupSession {
 impl EfSecInboundGroupSession {
     #[wasm_bindgen(constructor)]
     pub fn new(session_key: &str) -> Result<Self, JsValue> {
-        let session_key = SessionKey::from_base64(session_key)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let session_key =
+            SessionKey::from_base64(session_key).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let session = InboundGroupSession::new(&session_key, MegolmSessionConfig::version_1());
 
@@ -152,15 +156,14 @@ impl EfSecInboundGroupSession {
     }
 
     pub fn decrypt(&mut self, message: &str) -> Result<String, JsValue> {
-        let message = MegolmMessage::from_base64(message)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+        let message =
+            MegolmMessage::from_base64(message).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let decrypted = self
             .inner
             .decrypt(&message)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
-        String::from_utf8(decrypted.plaintext)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+        String::from_utf8(decrypted.plaintext).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 }

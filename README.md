@@ -278,10 +278,6 @@ EfSec is open source for security transparency and auditability. Contributions w
 3. Ensure tests pass
 4. Submit pull request
 
-### Security
-
-For security issues, please email security@efchat.net with PGP key [available here](https://efchat.net/security.asc).
-
 ## 📚 Resources
 
 - [Double Ratchet Specification](https://signal.org/docs/specifications/doubleratchet/)

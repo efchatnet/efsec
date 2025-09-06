@@ -1,14 +1,38 @@
 {
   "name": "@efchatnet/efsec",
   "version": "0.1.0",
-  "description": "E2E encryption library using Signal Protocol",
+  "description": "End-to-end encryption library using Double Ratchet and Megolm protocols",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist/",
+    "src/wasm/"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy-wasm",
+    "copy-wasm": "mkdir -p dist/wasm && cp -r ../efsec-wasm/pkg/* dist/wasm/",
     "test": "jest",
     "dev": "tsc --watch",
-    "prepublish": "npm run build"
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/efchatnet/efsec.git"
+  },
+  "keywords": [
+    "encryption",
+    "e2e",
+    "double-ratchet",
+    "megolm",
+    "signal-protocol",
+    "webassembly",
+    "wasm",
+    "matrix",
+    "vodozemac"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "@efchatnet:registry": "https://npm.pkg.github.com"
   },
   "dependencies": {
     "solid-js": "^1.8.11"
@@ -21,5 +45,8 @@
     "typescript": "^5.3.3"
   },
   "author": "efchat.net <tj@efchat.net>",
-  "license": "GPL-3.0-or-later"
+  "license": "GPL-3.0-or-later",
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }

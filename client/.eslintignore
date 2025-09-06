@@ -1,6 +1,0 @@
-# Generated WASM TypeScript declaration files
-src/wasm/*.d.ts
-
-# Build output
-dist/
-node_modules/

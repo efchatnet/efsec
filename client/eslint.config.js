@@ -6,6 +6,13 @@ import tsparser from '@typescript-eslint/parser';
 
 export default [
   {
+    ignores: [
+      'src/wasm/*.d.ts',
+      'dist/',
+      'node_modules/',
+    ],
+  },
+  {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
       parser: tsparser,

@@ -84,7 +84,7 @@ export class E2EStorage {
   }
 
   async saveIdentityKeys(keys: StoredKeys): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) {throw new Error('Database not initialized');}
 
     const transaction = this.db.transaction(['identity'], 'readwrite');
     const store = transaction.objectStore('identity');
@@ -97,7 +97,7 @@ export class E2EStorage {
   }
 
   async getIdentityKeys(): Promise<StoredKeys | null> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) {throw new Error('Database not initialized');}
 
     const transaction = this.db.transaction(['identity'], 'readonly');
     const store = transaction.objectStore('identity');
@@ -118,7 +118,7 @@ export class E2EStorage {
   }
 
   async saveSession(userId: string, sessionData: Uint8Array): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) {throw new Error('Database not initialized');}
 
     const transaction = this.db.transaction(['sessions'], 'readwrite');
     const store = transaction.objectStore('sessions');
@@ -131,7 +131,7 @@ export class E2EStorage {
   }
 
   async getSession(userId: string): Promise<Uint8Array | null> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) {throw new Error('Database not initialized');}
 
     const transaction = this.db.transaction(['sessions'], 'readonly');
     const store = transaction.objectStore('sessions');
@@ -147,7 +147,7 @@ export class E2EStorage {
   }
 
   async saveSenderKey(senderKey: StoredSenderKey): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) {throw new Error('Database not initialized');}
 
     const transaction = this.db.transaction(['senderKeys'], 'readwrite');
     const store = transaction.objectStore('senderKeys');
@@ -160,7 +160,7 @@ export class E2EStorage {
   }
 
   async getSenderKey(groupId: string): Promise<StoredSenderKey | null> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) {throw new Error('Database not initialized');}
 
     const transaction = this.db.transaction(['senderKeys'], 'readonly');
     const store = transaction.objectStore('senderKeys');
@@ -173,7 +173,7 @@ export class E2EStorage {
   }
 
   async clearAll(): Promise<void> {
-    if (!this.db) throw new Error('Database not initialized');
+    if (!this.db) {throw new Error('Database not initialized');}
 
     const stores = ['identity', 'sessions', 'senderKeys', 'preKeys', 'groupSessions'];
     const transaction = this.db.transaction(stores, 'readwrite');

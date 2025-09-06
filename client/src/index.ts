@@ -46,7 +46,7 @@ export class EfSecClient {
   }
 
   async init(authToken?: string, userId?: string): Promise<void> {
-    if (this.initialized) return;
+    if (this.initialized) {return;}
     
     // CRITICAL: E2E encryption is ONLY available to authenticated users
     if (!authToken || !userId) {
@@ -69,7 +69,7 @@ export class EfSecClient {
     await this.registerPublicKeys();
     
     this.initialized = true;
-    console.log('EfSec client initialized with vodozemac WASM for user:', userId);
+    console.error('EfSec client initialized with vodozemac WASM for user:', userId);
   }
 
   private ensureInitialized(): void {
@@ -118,7 +118,7 @@ export class EfSecClient {
 
   // Load or create account - PROTOCOL COMPLIANT
   private async loadOrCreateAccount(): Promise<void> {
-    if (!this.keyStorage) throw new Error('Key storage not initialized');
+    if (!this.keyStorage) {throw new Error('Key storage not initialized');}
     
     const transaction = this.keyStorage.transaction(['account'], 'readwrite');
     const store = transaction.objectStore('account');
@@ -129,13 +129,13 @@ export class EfSecClient {
       request.onsuccess = () => {
         if (request.result) {
           // Load existing account from client storage
-          console.log('Loading existing E2E account from client storage');
+          console.error('Loading existing E2E account from client storage');
           // Note: In a full implementation, we'd deserialize the account
           // For now, create new account (keys will be regenerated)
           this.account = new EfSecAccount();
         } else {
           // Create new account - PROTOCOL COMPLIANT
-          console.log('Creating new E2E account');
+          console.error('Creating new E2E account');
           this.account = new EfSecAccount();
           
           // Generate initial one-time keys per Double Ratchet protocol
@@ -162,7 +162,7 @@ export class EfSecClient {
   private async registerPublicKeys(): Promise<void> {
     this.ensureAuthenticated();
     
-    if (!this.account) throw new Error('Account not initialized');
+    if (!this.account) {throw new Error('Account not initialized');}
     
     const identityKeys = JSON.parse(this.account.identity_keys);
     const oneTimeKeys = JSON.parse(this.account.one_time_keys());
@@ -200,7 +200,7 @@ export class EfSecClient {
       throw new Error(`Failed to register public keys: ${response.statusText}`);
     }
     
-    console.log('Public keys registered in PostgreSQL for X3DH key exchange');
+    console.error('Public keys registered in PostgreSQL for X3DH key exchange');
   }
 
   // PROTOCOL COMPLIANT: Start Double Ratchet session for 1:1 DM
@@ -222,7 +222,10 @@ export class EfSecClient {
     const oneTimeKey = oneTimeKeys[oneTimeKeyIds[0]];
     
     // Double Ratchet: Create outbound session
-    const session = this.account!.create_outbound_session(
+    if (!this.account) {
+      throw new Error('Account not initialized');
+    }
+    const session = this.account.create_outbound_session(
       identityKeys.curve25519,  // Identity key
       oneTimeKey                // One-time key
     );
@@ -312,7 +315,7 @@ export class EfSecClient {
     
     // For now, we'll create a placeholder - in a real implementation,
     // we'd receive the session key from the server
-    console.log(`Joined group ${groupId} - session key would be received from server`);
+    console.error(`Joined group ${groupId} - session key would be received from server`);
   }
 
   async encryptGroupMessage(groupId: string, message: string): Promise<Uint8Array> {
@@ -340,31 +343,31 @@ export class EfSecClient {
   }
 
   // Placeholder implementations for other methods
-  async processIncomingKeyDistribution(senderId: string, encryptedMessage: Uint8Array): Promise<void> {
-    console.log('Processing incoming key distribution from', senderId);
+  async processIncomingKeyDistribution(senderId: string, _encryptedMessage: Uint8Array): Promise<void> {
+    console.error('Processing incoming key distribution from', senderId);
   }
 
-  async processKeyRequest(senderId: string, encryptedMessage: Uint8Array): Promise<void> {
-    console.log('Processing key request from', senderId);
+  async processKeyRequest(senderId: string, _encryptedMessage: Uint8Array): Promise<void> {
+    console.error('Processing key request from', senderId);
   }
 
   async rotateGroupKeys(groupId: string): Promise<void> {
-    console.log('Rotating group keys for', groupId);
+    console.error('Rotating group keys for', groupId);
   }
 
   async handleMemberRemoval(groupId: string, removedUserId: string): Promise<void> {
-    console.log('Handling member removal:', removedUserId, 'from group', groupId);
+    console.error('Handling member removal:', removedUserId, 'from group', groupId);
   }
 
   async handleNewMember(groupId: string, newMemberId: string): Promise<void> {
-    console.log('Handling new member:', newMemberId, 'in group', groupId);
+    console.error('Handling new member:', newMemberId, 'in group', groupId);
   }
 
   // Protocol helper methods for storage and key management
   
   // Store session data client-side (private keys never leave client)
-  private async storeSession(userId: string, sessionData: any): Promise<void> {
-    if (!this.keyStorage) return;
+  private async storeSession(userId: string, sessionData: Record<string, unknown>): Promise<void> {
+    if (!this.keyStorage) {return;}
     
     const transaction = this.keyStorage.transaction(['sessions'], 'readwrite');
     const store = transaction.objectStore('sessions');
@@ -382,8 +385,8 @@ export class EfSecClient {
   }
 
   // Store group session data client-side
-  private async storeGroupSession(groupId: string, sessionData: any): Promise<void> {
-    if (!this.keyStorage) return;
+  private async storeGroupSession(groupId: string, sessionData: Record<string, unknown>): Promise<void> {
+    if (!this.keyStorage) {return;}
     
     const transaction = this.keyStorage.transaction(['groupSessions'], 'readwrite');
     const store = transaction.objectStore('groupSessions');

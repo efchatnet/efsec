@@ -79,7 +79,7 @@ export const EncryptedChat: Component<EncryptedChatProps> = (props) => {
 
   const handleSend = async () => {
     const message = inputMessage().trim();
-    if (!message || sending() || !e2e.isInitialized()) return;
+    if (!message || sending() || !e2e.isInitialized()) {return;}
     
     setSending(true);
     try {

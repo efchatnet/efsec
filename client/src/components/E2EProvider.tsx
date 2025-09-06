@@ -85,7 +85,7 @@ export function E2EProvider(props: E2EProviderProps) {
 
   const hasSession = (userId: string): boolean => {
     const currentClient = client();
-    if (!currentClient) return false;
+    if (!currentClient) {return false;}
     
     // Check if we have a session with this user
     // This is a simplified check - in a real implementation we'd check the internal state

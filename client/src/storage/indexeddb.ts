@@ -42,13 +42,13 @@ export class E2EStorage {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, 1);
 
-      request.onerror = () => reject(request.error);
-      request.onsuccess = () => {
+      request.onerror = (): void => reject(request.error);
+      request.onsuccess = (): void => {
         this.db = request.result;
         resolve();
       };
 
-      request.onupgradeneeded = (event) => {
+      request.onupgradeneeded = (event): void => {
         const db = (event.target as IDBOpenDBRequest).result;
 
         // Identity keys store
@@ -91,8 +91,8 @@ export class E2EStorage {
     
     await new Promise<void>((resolve, reject) => {
       const request = store.put({ id: 'main', ...keys });
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      request.onsuccess = (): void => resolve();
+      request.onerror = (): void => reject(request.error);
     });
   }
 
@@ -104,7 +104,7 @@ export class E2EStorage {
 
     return new Promise((resolve, reject) => {
       const request = store.get('main');
-      request.onsuccess = () => {
+      request.onsuccess = (): void => {
         const result = request.result;
         if (result) {
           delete result.id;
@@ -113,7 +113,7 @@ export class E2EStorage {
           resolve(null);
         }
       };
-      request.onerror = () => reject(request.error);
+      request.onerror = (): void => reject(request.error);
     });
   }
 
@@ -125,8 +125,8 @@ export class E2EStorage {
 
     await new Promise<void>((resolve, reject) => {
       const request = store.put({ userId, sessionData });
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      request.onsuccess = (): void => resolve();
+      request.onerror = (): void => reject(request.error);
     });
   }
 
@@ -138,11 +138,11 @@ export class E2EStorage {
 
     return new Promise((resolve, reject) => {
       const request = store.get(userId);
-      request.onsuccess = () => {
+      request.onsuccess = (): void => {
         const result = request.result;
         resolve(result ? result.sessionData : null);
       };
-      request.onerror = () => reject(request.error);
+      request.onerror = (): void => reject(request.error);
     });
   }
 
@@ -154,8 +154,8 @@ export class E2EStorage {
 
     await new Promise<void>((resolve, reject) => {
       const request = store.put(senderKey);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
+      request.onsuccess = (): void => resolve();
+      request.onerror = (): void => reject(request.error);
     });
   }
 
@@ -167,8 +167,8 @@ export class E2EStorage {
 
     return new Promise((resolve, reject) => {
       const request = store.get(groupId);
-      request.onsuccess = () => resolve(request.result ?? null);
-      request.onerror = () => reject(request.error);
+      request.onsuccess = (): void => resolve(request.result ?? null);
+      request.onerror = (): void => reject(request.error);
     });
   }
 
@@ -182,8 +182,8 @@ export class E2EStorage {
       stores.map(storeName => {
         return new Promise<void>((resolve, reject) => {
           const request = transaction.objectStore(storeName).clear();
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
+          request.onsuccess = (): void => resolve();
+          request.onerror = (): void => reject(request.error);
         });
       })
     );

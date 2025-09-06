@@ -77,7 +77,7 @@ export const EncryptedChat: Component<EncryptedChatProps> = (props) => {
     });
   });
 
-  const handleSend = async () => {
+  const handleSend = async (): Promise<void> => {
     const message = inputMessage().trim();
     if (!message || sending() || !e2e.isInitialized()) {return;}
     
@@ -106,7 +106,7 @@ export const EncryptedChat: Component<EncryptedChatProps> = (props) => {
     }
   };
 
-  const getMessageContent = (msg: EncryptedMessage) => {
+  const getMessageContent = (msg: EncryptedMessage): string => {
     if (msg.isOutgoing) {
       return msg.decrypted ?? '[Encrypted]';
     }

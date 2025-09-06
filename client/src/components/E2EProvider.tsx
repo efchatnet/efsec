@@ -32,13 +32,13 @@ export interface E2EProviderProps {
   autoInitialize?: boolean;
 }
 
-export function E2EProvider(props: E2EProviderProps) {
+export function E2EProvider(props: E2EProviderProps): JSX.Element {
   const [client, setClient] = createSignal<EfSecClient | null>(null);
   const [isInitialized, setIsInitialized] = createSignal(false);
   const [isEstablishingSession, setIsEstablishingSession] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
 
-  const initializeE2E = async (apiUrl: string, authToken: string, _userId: string) => {
+  const initializeE2E = async (apiUrl: string, authToken: string, _userId: string): Promise<void> => {
     try {
       setError(null);
       const efsecClient = new EfSecClient(apiUrl);
@@ -149,7 +149,7 @@ export function E2EProvider(props: E2EProviderProps) {
   );
 }
 
-export function useE2E() {
+export function useE2E(): E2EContextType {
   const context = useContext(E2EContext);
   if (!context) {
     throw new Error('useE2E must be used within E2EProvider');

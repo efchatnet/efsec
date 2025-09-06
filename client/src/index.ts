@@ -91,13 +91,13 @@ export class EfSecClient {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(`efsec_keys_${this.userId}`, 1);
       
-      request.onerror = () => reject(new Error('Failed to initialize key storage'));
-      request.onsuccess = () => {
+      request.onerror = (): void => reject(new Error('Failed to initialize key storage'));
+      request.onsuccess = (): void => {
         this.keyStorage = request.result;
         resolve();
       };
       
-      request.onupgradeneeded = (event) => {
+      request.onupgradeneeded = (event): void => {
         const db = (event.target as IDBOpenDBRequest).result;
         
         // Store account data (private keys stay client-side)
@@ -128,7 +128,7 @@ export class EfSecClient {
     return new Promise((resolve, reject) => {
       const request = store.get('main');
       
-      request.onsuccess = () => {
+      request.onsuccess = (): void => {
         if (request.result) {
           // Load existing account from client storage
           console.error('Loading existing E2E account from client storage');
@@ -149,14 +149,14 @@ export class EfSecClient {
             // Note: In full implementation, we'd serialize the account securely
           }, 'main');
           
-          saveRequest.onsuccess = () => resolve();
-          saveRequest.onerror = () => reject(new Error('Failed to save account'));
+          saveRequest.onsuccess = (): void => resolve();
+          saveRequest.onerror = (): void => reject(new Error('Failed to save account'));
           return;
         }
         resolve();
       };
       
-      request.onerror = () => reject(new Error('Failed to load account'));
+      request.onerror = (): void => reject(new Error('Failed to load account'));
     });
   }
 
@@ -381,8 +381,8 @@ export class EfSecClient {
         stored: Date.now()
       }, userId);
       
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(new Error('Failed to store session'));
+      request.onsuccess = (): void => resolve();
+      request.onerror = (): void => reject(new Error('Failed to store session'));
     });
   }
 
@@ -399,8 +399,8 @@ export class EfSecClient {
         stored: Date.now()
       }, groupId);
       
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(new Error('Failed to store group session'));
+      request.onsuccess = (): void => resolve();
+      request.onerror = (): void => reject(new Error('Failed to store group session'));
     });
   }
 

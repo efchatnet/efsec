@@ -406,11 +406,18 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Audit Rust dependencies
-        uses: actions-rs/audit@v1
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
         with:
-          command: audit
-          args: --ignore RUSTSEC-0000-0000
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Audit Rust dependencies
+        run: cd efsec-wasm && cargo audit --ignore RUSTSEC-0000-0000
 
       - name: Audit Node.js dependencies  
         run: |

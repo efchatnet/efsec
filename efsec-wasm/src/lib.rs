@@ -5,10 +5,13 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
+use vodozemac::megolm::{
+    GroupSession, InboundGroupSession, MegolmMessage, SessionConfig as MegolmSessionConfig,
+    SessionKey,
+};
+use vodozemac::olm::{Account, OlmMessage, PreKeyMessage, Session, SessionConfig};
+use vodozemac::Curve25519PublicKey;
 use wasm_bindgen::prelude::*;
-use vodozemac::olm::{Account, Session, SessionConfig, PreKeyMessage, OlmMessage};
-use vodozemac::megolm::{InboundGroupSession, GroupSession, SessionConfig as MegolmSessionConfig, SessionKey, MegolmMessage};
-use vodozemac::{Curve25519PublicKey};
 
 #[wasm_bindgen(start)]
 pub fn main() {
@@ -63,7 +66,9 @@ impl EfSecAccount {
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
 
         let config = SessionConfig::version_2();
-        let session = self.inner.create_outbound_session(config, identity_key, one_time_key);
+        let session = self
+            .inner
+            .create_outbound_session(config, identity_key, one_time_key);
         Ok(EfSecSession { inner: session })
     }
 
@@ -77,15 +82,19 @@ impl EfSecAccount {
         let decoded = base64_decode(message)?;
         let identity_key = Curve25519PublicKey::from_base64(identity_key)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        
-        let pre_key_message = PreKeyMessage::from_bytes(&decoded)
+
+        let pre_key_message =
+            PreKeyMessage::from_bytes(&decoded).map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let result = self
+            .inner
+            .create_inbound_session(identity_key, &pre_key_message)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        
-        let result = self.inner.create_inbound_session(identity_key, &pre_key_message)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        
+
         Ok(EfSecInboundResult {
-            session: EfSecSession { inner: result.session },
+            session: EfSecSession {
+                inner: result.session,
+            },
             plaintext: String::from_utf8(result.plaintext)
                 .map_err(|e| JsValue::from_str(&e.to_string()))?,
         })
@@ -101,7 +110,6 @@ pub struct EfSecInboundResult {
 
 #[wasm_bindgen]
 impl EfSecInboundResult {
-
     #[wasm_bindgen(getter)]
     pub fn plaintext(&self) -> String {
         self.plaintext.clone()
@@ -129,14 +137,15 @@ impl EfSecSession {
     pub fn decrypt(&mut self, ciphertext: &str) -> Result<String, JsValue> {
         let decoded = base64_decode(ciphertext)?;
         // For WASM, we'll assume it's a normal message for now
-        let message = OlmMessage::from_parts(1, &decoded)
+        let message =
+            OlmMessage::from_parts(1, &decoded).map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let plaintext = self
+            .inner
+            .decrypt(&message)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        
-        let plaintext = self.inner.decrypt(&message)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        
-        String::from_utf8(plaintext)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+
+        String::from_utf8(plaintext).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Get session ID
@@ -194,9 +203,9 @@ impl EfSecInboundGroupSession {
     #[wasm_bindgen(constructor)]
     pub fn new(session_key: &str) -> Result<EfSecInboundGroupSession, JsValue> {
         let decoded = base64_decode(session_key)?;
-        let key = SessionKey::from_bytes(&decoded)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        
+        let key =
+            SessionKey::from_bytes(&decoded).map_err(|e| JsValue::from_str(&e.to_string()))?;
+
         let session = InboundGroupSession::new(&key, MegolmSessionConfig::version_1());
         Ok(Self { inner: session })
     }
@@ -205,14 +214,15 @@ impl EfSecInboundGroupSession {
     #[wasm_bindgen]
     pub fn decrypt(&mut self, ciphertext: &str) -> Result<String, JsValue> {
         let decoded = base64_decode(ciphertext)?;
-        let message = MegolmMessage::from_bytes(&decoded)
+        let message =
+            MegolmMessage::from_bytes(&decoded).map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let result = self
+            .inner
+            .decrypt(&message)
             .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        
-        let result = self.inner.decrypt(&message)
-            .map_err(|e| JsValue::from_str(&e.to_string()))?;
-        
-        String::from_utf8(result.plaintext)
-            .map_err(|e| JsValue::from_str(&e.to_string()))
+
+        String::from_utf8(result.plaintext).map_err(|e| JsValue::from_str(&e.to_string()))
     }
 
     /// Get session ID
@@ -226,22 +236,29 @@ impl EfSecInboundGroupSession {
 fn base64_encode(data: &[u8]) -> String {
     use js_sys::Uint8Array;
     use web_sys::window;
-    
+
     let uint8_array = Uint8Array::new_with_length(data.len() as u32);
     uint8_array.copy_from(data);
-    
+
     let window = window().unwrap();
-    window.btoa(&String::from_utf16_lossy(
-        &uint8_array.to_vec().iter().map(|&b| b as u16).collect::<Vec<_>>()
-    )).unwrap()
+    window
+        .btoa(&String::from_utf16_lossy(
+            &uint8_array
+                .to_vec()
+                .iter()
+                .map(|&b| b as u16)
+                .collect::<Vec<_>>(),
+        ))
+        .unwrap()
 }
 
 fn base64_decode(data: &str) -> Result<Vec<u8>, JsValue> {
     use web_sys::window;
-    
+
     let window = window().unwrap();
-    let decoded = window.atob(data)
+    let decoded = window
+        .atob(data)
         .map_err(|_e| JsValue::from_str("Invalid base64"))?;
-    
+
     Ok(decoded.chars().map(|c| c as u8).collect())
 }

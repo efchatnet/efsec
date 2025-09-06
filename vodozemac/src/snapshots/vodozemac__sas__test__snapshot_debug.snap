@@ -1,9 +1,0 @@
----
-source: src/sas.rs
-expression: established
----
-EstablishedSas {
-    our_public_key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-    their_public_key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-    ..
-}

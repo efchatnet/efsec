@@ -1,5 +1,0 @@
----
-source: src/types/ed25519.rs
-expression: public_key
----
-"ed25519:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"

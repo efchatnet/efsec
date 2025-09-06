@@ -1,3 +1,6 @@
 [submodule "libsignal"]
 	path = libsignal
 	url = https://github.com/signalapp/libsignal.git
+[submodule "vodozemac"]
+	path = vodozemac
+	url = https://github.com/matrix-org/vodozemac.git

@@ -1,8 +1,0 @@
-# all of these are valid words, but should never appear in this repo
-[default.extend-words]
-sing = "sign"
-singed = "signed"
-singing = "signing"
-
-[files]
-extend-exclude = ["afl/*/in/*"]

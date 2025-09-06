@@ -117,6 +117,15 @@ jobs:
           
           echo "✓ Rust code quality checks passed"
 
+      - name: Build WASM module for TypeScript checks (web target only)
+        if: matrix.target == 'web'
+        run: |
+          echo "Building WASM module for TypeScript compilation..."
+          cd efsec-wasm
+          wasm-pack build --target web --out-dir pkg-web
+          ls -la pkg-web/
+          echo "✓ WASM module built for TypeScript checks"
+
       - name: TypeScript code quality checks (web target only)
         if: matrix.target == 'web'
         run: |
@@ -125,6 +134,12 @@ jobs:
           
           # Install dependencies
           npm ci
+          
+          # Copy WASM files for TypeScript compilation (web target only)
+          echo "Copying WASM files for TypeScript..."
+          mkdir -p src/wasm
+          cp ../efsec-wasm/pkg-web/* src/wasm/
+          echo "✓ WASM files copied for TypeScript compilation"
           
           # TypeScript strict type checking
           echo "Running TypeScript strict type checker..."

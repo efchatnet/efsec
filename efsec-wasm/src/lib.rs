@@ -24,9 +24,16 @@ pub struct EfSecAccount {
     inner: Account,
 }
 
+impl Default for EfSecAccount {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl EfSecAccount {
     #[wasm_bindgen(constructor)]
+    #[must_use]
     pub fn new() -> Self {
         Self {
             inner: Account::new(),
@@ -34,10 +41,12 @@ impl EfSecAccount {
     }
 
     #[wasm_bindgen(getter)]
+    #[must_use]
     pub fn identity_keys(&self) -> String {
         serde_json::to_string(&self.inner.identity_keys()).unwrap_or_default()
     }
 
+    #[must_use]
     pub fn one_time_keys(&self) -> String {
         serde_json::to_string(&self.inner.one_time_keys()).unwrap_or_default()
     }
@@ -46,6 +55,10 @@ impl EfSecAccount {
         self.inner.generate_one_time_keys(count);
     }
 
+    /// Create an outbound session with the given identity and one-time keys.
+    ///
+    /// # Errors
+    /// Returns error if JSON deserialization of keys fails.
     pub fn create_outbound_session(
         &self,
         identity_key: &str,
@@ -65,6 +78,10 @@ impl EfSecAccount {
         Ok(EfSecSession { inner: session })
     }
 
+    /// Create an inbound session from an identity key and prekey message.
+    ///
+    /// # Errors
+    /// Returns error if JSON deserialization fails or session creation fails.
     pub fn create_inbound_session(
         &mut self,
         identity_key: &str,
@@ -99,6 +116,10 @@ impl EfSecSession {
         serde_json::to_string(&message).unwrap_or_default()
     }
 
+    /// Decrypt a message using this session.
+    ///
+    /// # Errors
+    /// Returns error if JSON deserialization fails, decryption fails, or UTF-8 conversion fails.
     pub fn decrypt(&mut self, message: &str) -> Result<String, JsValue> {
         let message: OlmMessage =
             serde_json::from_str(message).map_err(|e| JsValue::from_str(&e.to_string()))?;
@@ -118,15 +139,23 @@ pub struct EfSecOutboundGroupSession {
     inner: GroupSession,
 }
 
+impl Default for EfSecOutboundGroupSession {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[wasm_bindgen]
 impl EfSecOutboundGroupSession {
     #[wasm_bindgen(constructor)]
+    #[must_use]
     pub fn new() -> Self {
         Self {
             inner: GroupSession::new(MegolmSessionConfig::version_1()),
         }
     }
 
+    #[must_use]
     pub fn session_key(&self) -> String {
         self.inner.session_key().to_base64()
     }
@@ -145,6 +174,10 @@ pub struct EfSecInboundGroupSession {
 
 #[wasm_bindgen]
 impl EfSecInboundGroupSession {
+    /// Create a new inbound group session from a session key.
+    ///
+    /// # Errors
+    /// Returns error if session key decoding from base64 fails.
     #[wasm_bindgen(constructor)]
     pub fn new(session_key: &str) -> Result<Self, JsValue> {
         let session_key =
@@ -155,6 +188,10 @@ impl EfSecInboundGroupSession {
         Ok(Self { inner: session })
     }
 
+    /// Decrypt a group message using this inbound session.
+    ///
+    /// # Errors
+    /// Returns error if base64 decoding fails, decryption fails, or UTF-8 conversion fails.
     pub fn decrypt(&mut self, message: &str) -> Result<String, JsValue> {
         let message =
             MegolmMessage::from_base64(message).map_err(|e| JsValue::from_str(&e.to_string()))?;

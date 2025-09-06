@@ -126,14 +126,21 @@ jobs:
           ls -la pkg-web/
           echo "✓ WASM module built for TypeScript checks"
 
+      - name: Setup Bun
+        if: matrix.target == 'web'
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
       - name: TypeScript code quality checks (web target only)
         if: matrix.target == 'web'
         run: |
           echo "Running comprehensive TypeScript code quality checks..."
           cd client
           
-          # Install dependencies
-          npm ci
+          # Install dependencies with bun
+          echo "Installing dependencies with Bun..."
+          bun install
           
           # Copy WASM files for TypeScript compilation (web target only)
           echo "Copying WASM files for TypeScript..."
@@ -143,15 +150,15 @@ jobs:
           
           # TypeScript strict type checking
           echo "Running TypeScript strict type checker..."
-          npx tsc --noEmit --strict --exactOptionalPropertyTypes --noImplicitReturns --noFallthroughCasesInSwitch
+          bunx tsc --noEmit --strict --exactOptionalPropertyTypes --noImplicitReturns --noFallthroughCasesInSwitch
           
           # ESLint with strict rules
           echo "Running ESLint with security and quality rules..."
-          npx eslint src/ --ext .ts,.tsx --max-warnings 0
+          bunx eslint src/ --ext .ts,.tsx --max-warnings 0
           
           # Prettier formatting check
           echo "Checking code formatting with Prettier..."
-          npx prettier --check src/
+          bunx prettier --check src/
           
           # Security checks
           echo "Running security-focused checks..."

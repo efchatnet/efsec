@@ -1,0 +1,40 @@
+export declare class EfSecClient {
+    private apiUrl;
+    private authToken?;
+    private userId?;
+    private account?;
+    private sessions;
+    private groupSessions;
+    private initialized;
+    private keyStorage;
+    constructor(apiUrl: string);
+    init(authToken?: string, userId?: string): Promise<void>;
+    private ensureInitialized;
+    private ensureAuthenticated;
+    private initKeyStorage;
+    private loadOrCreateAccount;
+    private registerPublicKeys;
+    startDMSession(userId: string): Promise<void>;
+    encryptDM(userId: string, message: string): Promise<Uint8Array>;
+    decryptDM(userId: string, ciphertext: Uint8Array): Promise<string>;
+    createGroup(groupId: string): Promise<void>;
+    joinGroup(groupId: string): Promise<void>;
+    encryptGroupMessage(groupId: string, message: string): Promise<Uint8Array>;
+    decryptGroupMessage(groupId: string, senderId: string, senderDeviceId: number, ciphertext: Uint8Array): Promise<string>;
+    processIncomingKeyDistribution(senderId: string, _encryptedMessage: Uint8Array): Promise<void>;
+    processKeyRequest(senderId: string, _encryptedMessage: Uint8Array): Promise<void>;
+    rotateGroupKeys(groupId: string): Promise<void>;
+    handleMemberRemoval(groupId: string, removedUserId: string): Promise<void>;
+    handleNewMember(groupId: string, newMemberId: string): Promise<void>;
+    private storeSession;
+    private storeGroupSession;
+    private storeEphemeralMessage;
+    private markOneTimeKeyUsed;
+    private registerGroupSessionKey;
+    private fetchKeyBundle;
+    getIdentityKeys(): string;
+    getOneTimeKeys(): string;
+    generateOneTimeKeys(count?: number): void;
+}
+export default EfSecClient;
+//# sourceMappingURL=index.d.ts.map

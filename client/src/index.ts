@@ -187,6 +187,9 @@ export class EfSecClient {
             throw new Error('WASM module not loaded');
           }
           this.account = new EfSecAccount();
+          
+          // Generate one-time keys for existing account too!
+          this.account.generate_one_time_keys(50);
         } else {
           // Create new account - PROTOCOL COMPLIANT
           console.error('Creating new E2E account');

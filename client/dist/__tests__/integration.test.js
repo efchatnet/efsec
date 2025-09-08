@@ -191,8 +191,8 @@ describe('EfSec Integration Tests', () => {
                 }
                 catch (error) {
                     const message = error.message;
-                    // Should fail with user ID error, not indexedDB error
-                    expect(message).toMatch(/User ID required|indexedDB/);
+                    // Should fail with user ID error, not reach WASM/indexedDB initialization
+                    expect(message).toContain('User ID required');
                 }
             }
         });

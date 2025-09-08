@@ -49,7 +49,7 @@ export class EfSecClient {
             return;
         }
         // Use cookie-based authentication like efchat (no JWT tokens needed)
-        if (!userId) {
+        if (!userId || !userId.trim()) {
             throw new Error('User ID required: E2E encryption needs user identification');
         }
         this.userId = userId;

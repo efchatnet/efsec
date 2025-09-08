@@ -31,6 +31,10 @@ function generateSecureUniqueId() {
     crypto.getRandomValues(array);
     return array[0];
 }
+// Helper function to read cookies (for CSRF token)
+function getCookie(name) {
+    return document.cookie.match(`(^|;)\\s*${name}=([^;]+)`)?.pop() || '';
+}
 export class EfSecClient {
     constructor(apiUrl) {
         this.sessions = new Map();
@@ -227,6 +231,7 @@ export class EfSecClient {
                 credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': getCookie('csrf_token'),
                 },
                 body: JSON.stringify({
                     userId: this.userId,
@@ -457,6 +462,7 @@ export class EfSecClient {
             credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRF-Token': getCookie('csrf_token'),
             },
             body: JSON.stringify({
                 senderId: this.userId,
@@ -476,6 +482,9 @@ export class EfSecClient {
         const response = await fetch(`${this.apiUrl}/api/e2e/keys/one-time/${userId}/${keyId}/used`, {
             method: 'POST',
             credentials: 'include',
+            headers: {
+                'X-CSRF-Token': getCookie('csrf_token'),
+            },
         });
         if (!response.ok) {
             throw new Error(`Failed to mark one-time key as used: ${response.statusText}`);
@@ -488,6 +497,7 @@ export class EfSecClient {
             credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
+                'X-CSRF-Token': getCookie('csrf_token'),
             },
             body: JSON.stringify({
                 sessionKey, // Public session key for Megolm

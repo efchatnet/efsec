@@ -54,6 +54,11 @@ function generateSecureUniqueId(): number {
   return array[0];
 }
 
+// Helper function to read cookies (for CSRF token)
+function getCookie(name: string): string {
+  return document.cookie.match(`(^|;)\\s*${name}=([^;]+)`)?.pop() || '';
+}
+
 export class EfSecClient {
   private apiUrl: string;
   private userId?: string;
@@ -286,6 +291,7 @@ export class EfSecClient {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
+          'X-CSRF-Token': getCookie('csrf_token'),
         },
         body: JSON.stringify({
           userId: this.userId,
@@ -587,6 +593,7 @@ export class EfSecClient {
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
+        'X-CSRF-Token': getCookie('csrf_token'),
       },
       body: JSON.stringify({
         senderId: this.userId,
@@ -608,6 +615,9 @@ export class EfSecClient {
     const response = await fetch(`${this.apiUrl}/api/e2e/keys/one-time/${userId}/${keyId}/used`, {
       method: 'POST',
       credentials: 'include',
+      headers: {
+        'X-CSRF-Token': getCookie('csrf_token'),
+      },
     });
 
     if (!response.ok) {
@@ -622,6 +632,7 @@ export class EfSecClient {
       credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
+        'X-CSRF-Token': getCookie('csrf_token'),
       },
       body: JSON.stringify({
         sessionKey, // Public session key for Megolm

@@ -237,8 +237,14 @@ export class EfSecClient {
     }
     
     try {
-      oneTimeKeys = JSON.parse(this.account.one_time_keys);
+      const oneTimeKeysRaw = this.account.one_time_keys;
+      console.error('Raw one-time keys from WASM:', JSON.stringify(oneTimeKeysRaw));
+      oneTimeKeys = JSON.parse(oneTimeKeysRaw);
     } catch (error) {
+      const oneTimeKeysRaw = this.account.one_time_keys;
+      console.error('FAILED to parse one-time keys. Raw value:', JSON.stringify(oneTimeKeysRaw));
+      console.error('Raw value length:', oneTimeKeysRaw?.length);
+      console.error('Raw value type:', typeof oneTimeKeysRaw);
       throw new Error(`Failed to parse one-time keys: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
     }
 

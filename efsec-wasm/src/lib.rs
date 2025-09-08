@@ -48,12 +48,14 @@ impl EfSecAccount {
     #[wasm_bindgen(getter)]
     #[must_use]
     pub fn identity_keys(&self) -> String {
-        serde_json::to_string(&self.inner.identity_keys()).unwrap_or_default()
+        serde_json::to_string(&self.inner.identity_keys())
+            .unwrap_or_else(|_| "{}".to_string())
     }
 
     #[must_use]
     pub fn one_time_keys(&self) -> String {
-        serde_json::to_string(&self.inner.one_time_keys()).unwrap_or_default()
+        serde_json::to_string(&self.inner.one_time_keys())
+            .unwrap_or_else(|_| "{}".to_string())
     }
 
     pub fn generate_one_time_keys(&mut self, count: usize) {

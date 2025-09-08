@@ -231,7 +231,7 @@ export class EfSecClient {
 
     let identityKeys, oneTimeKeys;
     try {
-      identityKeys = JSON.parse(this.account.identity_keys());
+      identityKeys = JSON.parse(this.account.identity_keys);
     } catch (error) {
       throw new Error(`Failed to parse identity keys: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
     }
@@ -638,7 +638,7 @@ export class EfSecClient {
     if (!this.account) {
       throw new Error('Account not available');
     }
-    return this.account.identity_keys();
+    return this.account.identity_keys;
   }
 
   // Public method to get one-time keys for upload

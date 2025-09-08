@@ -1,6 +1,5 @@
 export declare class EfSecClient {
     private apiUrl;
-    private authToken?;
     private userId?;
     private account?;
     private sessions;
@@ -8,7 +7,7 @@ export declare class EfSecClient {
     private initialized;
     private keyStorage;
     constructor(apiUrl: string);
-    init(authToken?: string, userId?: string): Promise<void>;
+    init(userId?: string): Promise<void>;
     private ensureInitialized;
     private ensureAuthenticated;
     private initKeyStorage;

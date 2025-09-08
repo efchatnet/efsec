@@ -40,15 +40,14 @@ export class EfSecClient {
         this.apiUrl = apiUrl;
     }
     // eslint-disable-next-line max-lines-per-function
-    async init(authToken, userId) {
+    async init(userId) {
         if (this.initialized) {
             return;
         }
-        // CRITICAL: E2E encryption is ONLY available to authenticated users
-        if (!authToken || !userId) {
-            throw new Error('Authentication required: E2E encryption is only available to logged-in users');
+        // Use cookie-based authentication like efchat (no JWT tokens needed)
+        if (!userId) {
+            throw new Error('User ID required: E2E encryption needs user identification');
         }
-        this.authToken = authToken;
         this.userId = userId;
         // Initialize WASM module (load dynamically)
         if (!wasmInit) {
@@ -128,8 +127,8 @@ export class EfSecClient {
         }
     }
     ensureAuthenticated() {
-        if (!this.authToken || !this.userId) {
-            throw new Error('Authentication required for E2E encryption');
+        if (!this.userId) {
+            throw new Error('User ID required for E2E encryption');
         }
     }
     // Initialize IndexedDB for client-side key storage (ZERO KNOWLEDGE SERVER)
@@ -225,9 +224,9 @@ export class EfSecClient {
         try {
             const response = await fetch(`${this.apiUrl}/api/e2e/keys`, {
                 method: 'POST',
+                credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: `Bearer ${this.authToken}`,
                 },
                 body: JSON.stringify({
                     userId: this.userId,
@@ -455,9 +454,9 @@ export class EfSecClient {
     async storeEphemeralMessage(recipientId, encryptedData, type) {
         const response = await fetch(`${this.apiUrl}/api/e2e/messages/ephemeral`, {
             method: 'POST',
+            credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.authToken}`,
             },
             body: JSON.stringify({
                 senderId: this.userId,
@@ -476,9 +475,7 @@ export class EfSecClient {
     async markOneTimeKeyUsed(userId, keyId) {
         const response = await fetch(`${this.apiUrl}/api/e2e/keys/one-time/${userId}/${keyId}/used`, {
             method: 'POST',
-            headers: {
-                Authorization: `Bearer ${this.authToken}`,
-            },
+            credentials: 'include',
         });
         if (!response.ok) {
             throw new Error(`Failed to mark one-time key as used: ${response.statusText}`);
@@ -488,9 +485,9 @@ export class EfSecClient {
     async registerGroupSessionKey(groupId, sessionKey) {
         const response = await fetch(`${this.apiUrl}/api/e2e/groups/${groupId}/session-key`, {
             method: 'POST',
+            credentials: 'include',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: `Bearer ${this.authToken}`,
             },
             body: JSON.stringify({
                 sessionKey, // Public session key for Megolm
@@ -505,9 +502,7 @@ export class EfSecClient {
     // POSTGRESQL: Fetch user's public key bundle for X3DH
     async fetchKeyBundle(userId) {
         const response = await fetch(`${this.apiUrl}/api/e2e/bundle/${userId}`, {
-            headers: {
-                Authorization: `Bearer ${this.authToken}`,
-            },
+            credentials: 'include',
         });
         if (!response.ok) {
             throw new Error(`Failed to fetch key bundle: ${response.statusText}`);

@@ -20,22 +20,20 @@ describe('EfSec Integration Tests', () => {
       expect(client).toBeInstanceOf(EfSecClient);
     });
 
-    test('should require authentication for initialization', async () => {
+    test('should require user ID for initialization', async () => {
       const client = new EfSecClient('https://api.example.com');
 
-      // Should reject initialization without auth
-      await expect(client.init()).rejects.toThrow(/Authentication required/);
-      await expect(client.init('', '')).rejects.toThrow(/Authentication required/);
-      await expect(client.init('token', '')).rejects.toThrow(/Authentication required/);
-      await expect(client.init('', 'user')).rejects.toThrow(/Authentication required/);
+      // Should reject initialization without user ID
+      await expect(client.init()).rejects.toThrow(/User ID required/);
+      await expect(client.init('')).rejects.toThrow(/User ID required/);
     });
 
-    test('should attempt initialization with valid parameters', async () => {
+    test('should attempt initialization with valid user ID', async () => {
       const client = new EfSecClient('https://api.example.com');
 
-      // This will fail due to network/WASM issues, but should get past auth check
-      await expect(client.init('valid_token', 'valid_user')).rejects.not.toThrow(
-        /Authentication required/
+      // This will fail due to network/WASM issues, but should get past user ID check
+      await expect(client.init('valid_user')).rejects.not.toThrow(
+        /User ID required/
       );
     });
   });
@@ -89,14 +87,14 @@ describe('EfSec Integration Tests', () => {
       const client = new EfSecClient('https://nonexistent.domain.invalid');
 
       // Should fail but not crash
-      await expect(client.init('token', 'user')).rejects.toThrow();
+      await expect(client.init('user')).rejects.toThrow();
     });
 
     test('should handle malformed URLs in requests', async () => {
       // Test with technically valid but unusual URLs
       const client = new EfSecClient('https://test.local');
 
-      await expect(client.init('token', 'user')).rejects.toThrow();
+      await expect(client.init('user')).rejects.toThrow();
     });
 
     test('should provide meaningful error messages', async () => {
@@ -107,9 +105,8 @@ describe('EfSec Integration Tests', () => {
       } catch (error) {
         expect(error).toBeInstanceOf(Error);
         const message = (error as Error).message;
-        expect(message).toContain('Authentication required');
+        expect(message).toContain('User ID required');
         expect(message).toContain('E2E encryption');
-        expect(message).toContain('logged-in users');
       }
     });
   });
@@ -122,8 +119,8 @@ describe('EfSec Integration Tests', () => {
       // (We can't directly check private members, but behavior should reflect this)
 
       // Multiple init attempts should be handled
-      const promise1 = client.init('token', 'user').catch(() => 'failed');
-      const promise2 = client.init('token', 'user').catch(() => 'failed');
+      const promise1 = client.init('user').catch(() => 'failed');
+      const promise2 = client.init('user').catch(() => 'failed');
 
       const [result1, result2] = await Promise.all([promise1, promise2]);
       expect(result1).toBe('failed');
@@ -136,7 +133,7 @@ describe('EfSec Integration Tests', () => {
       // Start multiple initialization attempts simultaneously
       const promises = Array(5)
         .fill(0)
-        .map(() => client.init('token', 'user').catch(() => 'failed'));
+        .map(() => client.init('user').catch(() => 'failed'));
 
       const results = await Promise.all(promises);
       expect(results.every(result => result === 'failed')).toBe(true);
@@ -165,7 +162,7 @@ describe('EfSec Integration Tests', () => {
 
       // Methods should be bound to the instance
       const initMethod = client.init.bind(client);
-      await expect(initMethod()).rejects.toThrow(/Authentication required/);
+      await expect(initMethod()).rejects.toThrow(/User ID required/);
     });
   });
 
@@ -178,7 +175,7 @@ describe('EfSec Integration Tests', () => {
         .fill(0)
         .map(async (_, i) => {
           try {
-            await client.init(`token${i}`, `user${i}`);
+            await client.init(`user${i}`);
           } catch {
             // Expected to fail
           }
@@ -187,7 +184,7 @@ describe('EfSec Integration Tests', () => {
       await Promise.all(promises);
 
       // Should still work after many failed attempts
-      await expect(client.init('final_token', 'final_user')).rejects.toThrow();
+      await expect(client.init('final_user')).rejects.toThrow();
     });
 
     test('should handle garbage collection appropriately', () => {
@@ -213,70 +210,57 @@ describe('EfSec Integration Tests', () => {
 
       // Test with various invalid parameter types
       // @ts-expect-error - Testing invalid types
-      await expect(client.init(123, 'user')).rejects.toThrow();
+      await expect(client.init(123)).rejects.toThrow();
 
       // @ts-expect-error - Testing invalid types
-      await expect(client.init('token', 456)).rejects.toThrow();
-
-      // @ts-expect-error - Testing invalid types
-      await expect(client.init(null, 'user')).rejects.toThrow();
-
-      // @ts-expect-error - Testing invalid types
-      await expect(client.init('token', null)).rejects.toThrow();
+      await expect(client.init(null)).rejects.toThrow();
     });
 
     test('should work with proper string types', async () => {
       const client = new EfSecClient('https://api.example.com');
 
-      const token = 'string_token';
       const user = 'string_user';
 
       // Should not throw type errors (but will throw network/WASM errors)
-      await expect(client.init(token, user)).rejects.toThrow();
+      await expect(client.init(user)).rejects.toThrow();
     });
   });
 
   describe('Security Boundary Tests', () => {
-    test('should reject initialization without proper authentication', async () => {
+    test('should reject initialization without proper user ID', async () => {
       const client = new EfSecClient('https://api.example.com');
 
-      // Test various forms of empty/invalid auth
-      const invalidAuths = [
-        [undefined, undefined],
-        ['', ''],
-        [' ', ' '],
-        ['token', ''],
-        ['', 'user'],
-        [' token', 'user'],
-        ['token', ' user'],
-        ['token ', 'user'],
-        ['token', 'user '],
+      // Test various forms of empty/invalid user IDs
+      const invalidUserIds = [
+        undefined,
+        '',
+        ' ',
       ];
 
-      for (const [token, user] of invalidAuths) {
+      for (const userId of invalidUserIds) {
         try {
-          await client.init(token, user);
+          await client.init(userId);
           expect(true).toBe(false); // Should not reach here
         } catch (error) {
           const message = (error as Error).message;
-          // Should fail with auth error, not indexedDB error
-          expect(message).toMatch(/Authentication required|indexedDB/);
+          // Should fail with user ID error, not indexedDB error
+          expect(message).toMatch(/User ID required|indexedDB/);
         }
       }
     });
 
-    test('should validate authentication parameters properly', async () => {
+    test('should validate user ID parameters properly', async () => {
       const client = new EfSecClient('https://api.example.com');
 
-      // These should pass the authentication check but fail later
-      const validAuths = [
-        ['valid_token', 'valid_user'],
-        ['token123', 'user456'],
-        ['bearer_token', 'alice@example.com'],
+      // These should pass the user ID check but fail later
+      const validUserIds = [
+        'valid_user',
+        'user456',
+        'alice@example.com',
       ];
 
-      for (const [token, user] of validAuths) {
-        await expect(client.init(token, user)).rejects.not.toThrow(/Authentication required/);
+      for (const userId of validUserIds) {
+        await expect(client.init(userId)).rejects.not.toThrow(/User ID required/);
       }
     });
   });

@@ -98,53 +98,9 @@ export class EfSecClient {
         EfSecOutboundGroupSession = wasmModule.EfSecOutboundGroupSession;
         EfSecInboundGroupSession = wasmModule.EfSecInboundGroupSession;
       } catch (error) {
-        // WASM not available - use mock implementations for testing
-        console.error('WASM module not available, using mocks:', error);
-        wasmInit = async (): Promise<unknown> => Promise.resolve({});
-
-        const MockSession = class {
-          encrypt(plaintext: string): string {
-            return `encrypted:${plaintext}`;
-          }
-          decrypt(ciphertext: string): string {
-            return ciphertext.replace('encrypted:', '');
-          }
-          session_id(): string {
-            return 'mock_session_id';
-          }
-        };
-
-        EfSecAccount = class MockEfSecAccount {
-          identity_keys = JSON.stringify({ curve25519: 'mock_key' });
-          one_time_keys = JSON.stringify({ curve25519: { '1': 'mock_otk' } });
-
-          generate_one_time_keys(_count: number): void {
-            // Mock implementation
-          }
-
-          create_outbound_session(_identity_key: string, _one_time_key: string): any {
-            return new MockSession();
-          }
-        };
-
-        EfSecSession = MockSession;
-        EfSecOutboundGroupSession = class {
-          encrypt(plaintext: string): string {
-            return `group_encrypted:${plaintext}`;
-          }
-          session_id(): string {
-            return 'mock_group_session_id';
-          }
-          session_key(): string {
-            return 'mock_group_session_key';
-          }
-        };
-        EfSecInboundGroupSession = class {
-          constructor(private _session_key: string) {}
-          decrypt(ciphertext: string): string {
-            return ciphertext.replace('group_encrypted:', '');
-          }
-        };
+        // WASM not available - E2E encryption cannot function
+        console.error('WASM module not available - E2E encryption disabled:', error);
+        throw new Error(`E2E encryption unavailable: WASM module failed to load. ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
 

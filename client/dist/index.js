@@ -65,52 +65,9 @@ export class EfSecClient {
                 EfSecInboundGroupSession = wasmModule.EfSecInboundGroupSession;
             }
             catch (error) {
-                // WASM not available - use mock implementations for testing
-                console.error('WASM module not available, using mocks:', error);
-                wasmInit = async () => Promise.resolve({});
-                const MockSession = class {
-                    encrypt(plaintext) {
-                        return `encrypted:${plaintext}`;
-                    }
-                    decrypt(ciphertext) {
-                        return ciphertext.replace('encrypted:', '');
-                    }
-                    session_id() {
-                        return 'mock_session_id';
-                    }
-                };
-                EfSecAccount = class MockEfSecAccount {
-                    constructor() {
-                        this.identity_keys = JSON.stringify({ curve25519: 'mock_key' });
-                        this.one_time_keys = JSON.stringify({ curve25519: { '1': 'mock_otk' } });
-                    }
-                    generate_one_time_keys(_count) {
-                        // Mock implementation
-                    }
-                    create_outbound_session(_identity_key, _one_time_key) {
-                        return new MockSession();
-                    }
-                };
-                EfSecSession = MockSession;
-                EfSecOutboundGroupSession = class {
-                    encrypt(plaintext) {
-                        return `group_encrypted:${plaintext}`;
-                    }
-                    session_id() {
-                        return 'mock_group_session_id';
-                    }
-                    session_key() {
-                        return 'mock_group_session_key';
-                    }
-                };
-                EfSecInboundGroupSession = class {
-                    constructor(_session_key) {
-                        this._session_key = _session_key;
-                    }
-                    decrypt(ciphertext) {
-                        return ciphertext.replace('group_encrypted:', '');
-                    }
-                };
+                // WASM not available - E2E encryption cannot function
+                console.error('WASM module not available - E2E encryption disabled:', error);
+                throw new Error(`E2E encryption unavailable: WASM module failed to load. ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
         }
         if (wasmInit) {

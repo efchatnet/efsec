@@ -231,20 +231,14 @@ export class EfSecClient {
 
     let identityKeys, oneTimeKeys;
     try {
-      identityKeys = JSON.parse(this.account.identity_keys);
+      identityKeys = JSON.parse(this.account.identity_keys());
     } catch (error) {
       throw new Error(`Failed to parse identity keys: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
     }
     
     try {
-      const oneTimeKeysRaw = this.account.one_time_keys;
-      console.error('Raw one-time keys from WASM:', JSON.stringify(oneTimeKeysRaw));
-      oneTimeKeys = JSON.parse(oneTimeKeysRaw);
+      oneTimeKeys = JSON.parse(this.account.one_time_keys());
     } catch (error) {
-      const oneTimeKeysRaw = this.account.one_time_keys;
-      console.error('FAILED to parse one-time keys. Raw value:', JSON.stringify(oneTimeKeysRaw));
-      console.error('Raw value length:', oneTimeKeysRaw?.length);
-      console.error('Raw value type:', typeof oneTimeKeysRaw);
       throw new Error(`Failed to parse one-time keys: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
     }
 
@@ -644,7 +638,7 @@ export class EfSecClient {
     if (!this.account) {
       throw new Error('Account not available');
     }
-    return this.account.identity_keys;
+    return this.account.identity_keys();
   }
 
   // Public method to get one-time keys for upload
@@ -653,7 +647,7 @@ export class EfSecClient {
     if (!this.account) {
       throw new Error('Account not available');
     }
-    return this.account.one_time_keys;
+    return this.account.one_time_keys();
   }
 
   // Generate more one-time keys when running low

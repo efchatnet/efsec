@@ -56,7 +56,7 @@ export class EfSecClient {
         // Initialize WASM module (load dynamically)
         if (!wasmInit) {
             try {
-                // @ts-ignore - Dynamic WASM import with fallback handling
+                // @ts-ignore - Dynamic WASM import from dist/wasm/web
                 const wasmModule = await import('./wasm/web/efsec_wasm');
                 wasmInit = wasmModule.default;
                 EfSecAccount = wasmModule.EfSecAccount;

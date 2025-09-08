@@ -1,0 +1,17 @@
+{
+  "name": "efsec-wasm",
+  "type": "module",
+  "description": "EfSec WebAssembly bindings for Double Ratchet and Megolm protocols",
+  "version": "0.1.0",
+  "license": "GPL-3.0-or-later",
+  "files": [
+    "efsec_wasm_bg.wasm",
+    "efsec_wasm.js",
+    "efsec_wasm.d.ts"
+  ],
+  "main": "efsec_wasm.js",
+  "types": "efsec_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

@@ -414,8 +414,15 @@ export class EfSecClient {
     }
     const outboundSession = new EfSecOutboundGroupSession();
 
+    // Create inbound session from outbound session key (required for decrypting own messages)
+    if (!EfSecInboundGroupSession) {
+      throw new Error('WASM module not loaded');
+    }
+    const inboundSession = new EfSecInboundGroupSession(outboundSession.session_key());
+
     const groupSessionData = {
       outbound: outboundSession,
+      inbound: inboundSession,
       sessionId: outboundSession.session_id(),
       created: generateSecureUniqueId(),
     };

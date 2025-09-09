@@ -177,7 +177,7 @@ export class EfSecClient {
             throw new Error(`Failed to parse identity keys: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
         }
         try {
-            oneTimeKeys = JSON.parse(this.account.one_time_keys);
+            oneTimeKeys = JSON.parse(this.account.one_time_keys());
         }
         catch (error) {
             throw new Error(`Failed to parse one-time keys: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
@@ -329,8 +329,14 @@ export class EfSecClient {
             throw new Error('WASM module not loaded');
         }
         const outboundSession = new EfSecOutboundGroupSession();
+        // Create inbound session from outbound session key (required for decrypting own messages)
+        if (!EfSecInboundGroupSession) {
+            throw new Error('WASM module not loaded');
+        }
+        const inboundSession = new EfSecInboundGroupSession(outboundSession.session_key());
         const groupSessionData = {
             outbound: outboundSession,
+            inbound: inboundSession,
             sessionId: outboundSession.session_id(),
             created: generateSecureUniqueId(),
         };
@@ -505,7 +511,7 @@ export class EfSecClient {
         if (!this.account) {
             throw new Error('Account not available');
         }
-        return this.account.one_time_keys;
+        return this.account.one_time_keys();
     }
     // Generate more one-time keys when running low
     generateOneTimeKeys(count = 50) {

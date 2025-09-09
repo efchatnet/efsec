@@ -17,7 +17,10 @@ package integration
 
 import (
 	"database/sql"
+	"fmt"
+	"log"
 	"net/http"
+	"strings"
 	
 	"github.com/gorilla/mux"
 	"github.com/redis/go-redis/v9"
@@ -33,6 +36,7 @@ type E2EIntegration struct {
 	keyHandler    *handlers.KeyHandler
 	groupHandler  *handlers.GroupHandler
 	dmHandler     *handlers.DMHandler
+	spaceHandler  *handlers.SpaceHandler
 	jwtSecret     string
 	jwtIssuer     string
 }
@@ -59,6 +63,7 @@ func NewE2EIntegration(config *Config) (*E2EIntegration, error) {
 		keyHandler:   handlers.NewKeyHandler(store),
 		groupHandler: handlers.NewGroupHandler(store),
 		dmHandler:    handlers.NewDMHandler(store),
+		spaceHandler: handlers.NewSpaceHandler(store),
 		jwtSecret:    config.JWTSecret,
 		jwtIssuer:    config.JWTIssuer,
 	}, nil
@@ -78,9 +83,6 @@ func (e *E2EIntegration) RegisterRoutes(router *mux.Router, authMiddleware func(
 		api.Use(middleware.NewAuthMiddleware(e.jwtSecret, e.jwtIssuer))
 	}
 	
-	// Initialize space handler
-	spaceHandler := handlers.NewSpaceHandler(e.store)
-	
 	// Key management endpoints
 	api.HandleFunc("/keys", e.keyHandler.RegisterKeys).Methods("POST", "OPTIONS")
 	api.HandleFunc("/bundle/{userId}", e.keyHandler.GetPreKeyBundle).Methods("GET", "OPTIONS")
@@ -88,17 +90,17 @@ func (e *E2EIntegration) RegisterRoutes(router *mux.Router, authMiddleware func(
 	api.HandleFunc("/keys/status", e.getKeyStatus).Methods("GET", "OPTIONS")
 	
 	// DM space endpoints
-	api.HandleFunc("/dm/initiate", spaceHandler.InitiateDM).Methods("POST", "OPTIONS")
-	api.HandleFunc("/dm/find", spaceHandler.FindDM).Methods("GET", "OPTIONS")
-	api.HandleFunc("/dm/list", spaceHandler.ListDMs).Methods("GET", "OPTIONS")
+	api.HandleFunc("/dm/initiate", e.spaceHandler.InitiateDM).Methods("POST", "OPTIONS")
+	api.HandleFunc("/dm/find", e.spaceHandler.FindDM).Methods("GET", "OPTIONS")
+	api.HandleFunc("/dm/list", e.spaceHandler.ListDMs).Methods("GET", "OPTIONS")
 	
 	// Space management endpoints
-	api.HandleFunc("/space/{spaceId}/type", spaceHandler.GetSpaceType).Methods("GET", "OPTIONS")
-	api.HandleFunc("/space/{spaceId}/enable-e2e", spaceHandler.EnableE2EForSpace).Methods("POST", "OPTIONS")
+	api.HandleFunc("/space/{spaceId}/type", e.spaceHandler.GetSpaceType).Methods("GET", "OPTIONS")
+	api.HandleFunc("/space/{spaceId}/enable-e2e", e.spaceHandler.EnableE2EForSpace).Methods("POST", "OPTIONS")
 	
 	// Group endpoints
 	api.HandleFunc("/group/create", e.groupHandler.CreateGroup).Methods("POST", "OPTIONS")
-	api.HandleFunc("/group/create-space", spaceHandler.CreateE2EGroup).Methods("POST", "OPTIONS")
+	api.HandleFunc("/group/create-space", e.spaceHandler.CreateE2EGroup).Methods("POST", "OPTIONS")
 	api.HandleFunc("/group/{groupId}/join", e.groupHandler.JoinGroup).Methods("POST", "OPTIONS")
 	api.HandleFunc("/group/{groupId}/members", e.groupHandler.GetGroupMembers).Methods("GET", "OPTIONS")
 	api.HandleFunc("/group/{groupId}/message", e.groupHandler.SendGroupMessage).Methods("POST", "OPTIONS")
@@ -209,4 +211,54 @@ type ValidationError struct {
 
 func (e *ValidationError) Error() string {
 	return e.Message
+}
+
+// Handler getters for bridge integration
+func (e *E2EIntegration) GetKeyHandler() *handlers.KeyHandler {
+	return e.keyHandler
+}
+
+func (e *E2EIntegration) GetDMHandler() *handlers.DMHandler {
+	return e.dmHandler
+}
+
+func (e *E2EIntegration) GetGroupHandler() *handlers.GroupHandler {
+	return e.groupHandler
+}
+
+func (e *E2EIntegration) GetSpaceHandler() *handlers.SpaceHandler {
+	return e.spaceHandler
+}
+
+func (e *E2EIntegration) GetKeyStatus(w http.ResponseWriter, r *http.Request) {
+	e.getKeyStatus(w, r)
+}
+
+func (e *E2EIntegration) RekeyGroup(w http.ResponseWriter, r *http.Request) {
+	e.rekeyGroup(w, r)
+}
+
+// CleanupDMSession removes all E2E session data for a DM space
+func (e *E2EIntegration) CleanupDMSession(spaceID string) error {
+	// Extract user IDs from DM space ID format: dm-user1-user2
+	if !strings.HasPrefix(spaceID, "dm-") {
+		return nil // Not a DM space
+	}
+	
+	// Parse DM space ID to get the two user IDs
+	parts := strings.Split(spaceID, "-")
+	if len(parts) < 3 {
+		return fmt.Errorf("invalid DM space ID format: %s", spaceID)
+	}
+	
+	user1 := parts[1]
+	user2 := parts[2]
+	
+	// Clean up DM records between these users
+	if err := e.store.DeleteDMsBetweenUsers(user1, user2); err != nil {
+		return fmt.Errorf("failed to delete DMs between %s and %s: %w", user1, user2, err)
+	}
+	
+	log.Printf("[E2E-Cleanup] Cleaned up DM session data for space %s (%s <-> %s)", spaceID, user1, user2)
+	return nil
 }

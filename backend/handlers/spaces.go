@@ -288,6 +288,56 @@ func (h *SpaceHandler) checkSessionEstablished(userID, peerID string) bool {
 	return exists
 }
 
+// AcceptDM accepts an incoming DM invitation
+func (h *SpaceHandler) AcceptDM(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	
+	vars := mux.Vars(r)
+	spaceID := vars["spaceId"]
+	
+	if spaceID == "" {
+		http.Error(w, "Space ID required", http.StatusBadRequest)
+		return
+	}
+	
+	// For now, just return success - actual invitation logic would go here
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "accepted",
+		"space_id": spaceID,
+		"user_id": userID,
+	})
+}
+
+// DeclineDM declines an incoming DM invitation
+func (h *SpaceHandler) DeclineDM(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	
+	vars := mux.Vars(r)
+	spaceID := vars["spaceId"]
+	
+	if spaceID == "" {
+		http.Error(w, "Space ID required", http.StatusBadRequest)
+		return
+	}
+	
+	// For now, just return success - actual invitation logic would go here
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status": "declined",
+		"space_id": spaceID,
+		"user_id": userID,
+	})
+}
+
 // Helper to extract space type from space ID
 func getSpaceTypeFromID(spaceID string) string {
 	if strings.HasPrefix(spaceID, "dm_") {

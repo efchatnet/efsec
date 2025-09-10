@@ -261,3 +261,19 @@ func (s *DMStore) CleanupExpiredMessages() error {
 	
 	return iter.Err()
 }
+
+func (s *DMStore) DeleteDMsBetweenUsers(user1, user2 string) error {
+	// Get all messages between these users
+	messages1, err := s.GetDMsBetweenUsers(user1, user2, 1000)
+	if err != nil {
+		return fmt.Errorf("failed to get DMs for cleanup: %w", err)
+	}
+	
+	// Delete messages from both users' queues
+	for _, dm := range messages1 {
+		s.DeleteDMForUser(dm.MessageID, user1)
+		s.DeleteDMForUser(dm.MessageID, user2)
+	}
+	
+	return nil
+}

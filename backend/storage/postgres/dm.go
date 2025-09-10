@@ -32,3 +32,7 @@ func (s *Store) MarkDMAsRead(messageID, userID string) error {
 func (s *Store) DeleteDMForUser(messageID, userID string) error {
 	return s.dmStore.DeleteDMForUser(messageID, userID)
 }
+
+func (s *Store) DeleteDMsBetweenUsers(user1, user2 string) error {
+	return s.dmStore.DeleteDMsBetweenUsers(user1, user2)
+}

@@ -87,7 +87,7 @@ func (e *E2EIntegration) RegisterRoutes(router *mux.Router, authMiddleware func(
 	api.HandleFunc("/keys", e.keyHandler.RegisterKeys).Methods("POST", "OPTIONS")
 	api.HandleFunc("/bundle/{userId}", e.keyHandler.GetPreKeyBundle).Methods("GET", "OPTIONS")
 	api.HandleFunc("/keys/replenish", e.keyHandler.ReplenishPreKeys).Methods("POST", "OPTIONS")
-	api.HandleFunc("/keys/status", e.getKeyStatus).Methods("GET", "OPTIONS")
+	api.HandleFunc("/keys/status", e.GetKeyStatus).Methods("GET", "OPTIONS")
 	
 	// DM space endpoints
 	api.HandleFunc("/dm/initiate", e.spaceHandler.InitiateDM).Methods("POST", "OPTIONS")
@@ -129,8 +129,8 @@ func (e *E2EIntegration) CheckPreKeyCount(userID string, threshold int) (bool, e
 	return count < threshold, nil
 }
 
-// getKeyStatus returns the current key status for a user
-func (e *E2EIntegration) getKeyStatus(w http.ResponseWriter, r *http.Request) {
+// GetKeyStatus returns the current key status for a user
+func (e *E2EIntegration) GetKeyStatus(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -230,9 +230,6 @@ func (e *E2EIntegration) GetSpaceHandler() *handlers.SpaceHandler {
 	return e.spaceHandler
 }
 
-func (e *E2EIntegration) GetKeyStatus(w http.ResponseWriter, r *http.Request) {
-	e.getKeyStatus(w, r)
-}
 
 func (e *E2EIntegration) RekeyGroup(w http.ResponseWriter, r *http.Request) {
 	e.rekeyGroup(w, r)

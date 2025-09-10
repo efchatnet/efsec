@@ -69,6 +69,7 @@ type DMStore interface {
 	GetDMsBetweenUsers(userID1, userID2 string, limit int) ([]models.EncryptedDM, error)
 	MarkDMAsRead(messageID, userID string) error
 	DeleteDMForUser(messageID, userID string) error
+	DeleteDMsBetweenUsers(user1, user2 string) error
 }
 
 type Store interface {

@@ -144,7 +144,9 @@ func (e *E2EIntegration) GetKeyStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"remaining_keys":` + string(rune(count)) + `}`))
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"remaining_keys": count,
+	})
 }
 
 

@@ -53,7 +53,7 @@ func (h *DMHandler) SendDM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
-	// TODO: Send real-time notification via WebSocket if recipient is online
+	// DM stored - real-time notifications handled by efchat WebSocket system
 	
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{

@@ -194,7 +194,7 @@ export class E2EIntegration {
         return await this.client.decryptGroupMessage(
           senderId, // Assuming this is groupId
           senderId,
-          0, // device ID placeholder
+          1, // device ID - Matrix Protocol default device ID
           bytes
         );
       } else {

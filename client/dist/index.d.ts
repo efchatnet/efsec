@@ -20,8 +20,8 @@ export declare class EfSecClient {
     joinGroup(groupId: string): Promise<void>;
     encryptGroupMessage(groupId: string, message: string): Promise<Uint8Array>;
     decryptGroupMessage(groupId: string, senderId: string, senderDeviceId: number, ciphertext: Uint8Array): Promise<string>;
-    processIncomingKeyDistribution(senderId: string, _encryptedMessage: Uint8Array): Promise<void>;
-    processKeyRequest(senderId: string, _encryptedMessage: Uint8Array): Promise<void>;
+    processIncomingKeyDistribution(senderId: string, encryptedMessage: Uint8Array): Promise<void>;
+    processKeyRequest(senderId: string, encryptedMessage: Uint8Array): Promise<void>;
     rotateGroupKeys(groupId: string): Promise<void>;
     handleMemberRemoval(groupId: string, removedUserId: string): Promise<void>;
     handleNewMember(groupId: string, newMemberId: string): Promise<void>;

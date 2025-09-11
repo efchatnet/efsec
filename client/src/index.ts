@@ -366,7 +366,7 @@ export class EfSecClient {
     await this.storeSession(userId, sessionData);
 
     // Notify server that one-time key was consumed (protocol requirement)
-    await this.markOneTimeKeyUsed(userId, oneTimeKeyIds[0]);
+    await this.markOneTimeKeyUsed(userId, keyBundle.one_time_pre_key.key_id.toString());
   }
 
   // PROTOCOL COMPLIANT: Encrypt DM using Double Ratchet

@@ -345,21 +345,22 @@ export class EfSecClient {
       [keyBundle.one_time_pre_key.key_id]: keyBundle.one_time_pre_key.public_key
     };
 
-    // X3DH Protocol: Select one-time key
+    // X3DH Protocol: Select one-time key  
     const oneTimeKeyIds = Object.keys(oneTimeKeys);
     if (oneTimeKeyIds.length === 0) {
       throw new Error('No one-time keys available for user - X3DH requires one-time key');
     }
 
-    const oneTimeKey = oneTimeKeys[oneTimeKeyIds[0]];
+    const firstKeyId = oneTimeKeyIds[0];
+    const oneTimeKey = oneTimeKeys[firstKeyId as keyof typeof oneTimeKeys];
 
     // Double Ratchet: Create outbound session
     if (!this.account) {
       throw new Error('Account not initialized');
     }
     const session = this.account.create_outbound_session(
-      identityKeys.curve25519, // Identity key
-      oneTimeKey // One-time key
+      identityKeys, // Identity key (raw bytes)
+      oneTimeKey // One-time key (raw bytes)
     );
 
     // Store session client-side (private keys never leave client)

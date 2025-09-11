@@ -341,18 +341,9 @@ export class EfSecClient {
 
     // Convert raw bytes to proper format for vodozemac
     const identityKeys = keyBundle.identity_public_key;
-    const oneTimeKeys = {
-      [keyBundle.one_time_pre_key.key_id]: keyBundle.one_time_pre_key.public_key
-    };
-
-    // X3DH Protocol: Select one-time key  
-    const oneTimeKeyIds = Object.keys(oneTimeKeys);
-    if (oneTimeKeyIds.length === 0) {
-      throw new Error('No one-time keys available for user - X3DH requires one-time key');
-    }
-
-    const firstKeyId = oneTimeKeyIds[0];
-    const oneTimeKey = oneTimeKeys[firstKeyId as keyof typeof oneTimeKeys];
+    
+    // X3DH Protocol: Use the one-time key directly
+    const oneTimeKey = keyBundle.one_time_pre_key.public_key;
 
     // Double Ratchet: Create outbound session
     if (!this.account) {

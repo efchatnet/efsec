@@ -32,6 +32,7 @@ export declare class EfSecClient {
     private storeEphemeralMessage;
     private markOneTimeKeyUsed;
     private registerGroupSessionKey;
+    private lookupUserId;
     private fetchKeyBundle;
     getIdentityKeys(): string;
     getOneTimeKeys(): string;

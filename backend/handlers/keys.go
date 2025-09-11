@@ -78,15 +78,25 @@ func (h *KeyHandler) ReplenishPreKeys(w http.ResponseWriter, r *http.Request) {
 	
 	var prekeys []models.OneTimePreKey
 	if err := json.NewDecoder(r.Body).Decode(&prekeys); err != nil {
+		fmt.Printf("[KeyHandler] ReplenishPreKeys decode error for user %s: %v\n", userID, err)
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
+	fmt.Printf("[KeyHandler] ReplenishPreKeys for user %s: received %d keys\n", userID, len(prekeys))
+	for i, key := range prekeys {
+		if i < 3 { // Log first 3 keys for debugging
+			fmt.Printf("[KeyHandler] Key %d: ID=%d, PublicKey length=%d bytes\n", i, key.KeyID, len(key.PublicKey))
+		}
+	}
+
 	if err := h.store.AddOneTimePreKeys(userID, prekeys); err != nil {
+		fmt.Printf("[KeyHandler] ReplenishPreKeys storage error for user %s: %v\n", userID, err)
 		http.Error(w, "Failed to add prekeys", http.StatusInternalServerError)
 		return
 	}
 
+	fmt.Printf("[KeyHandler] ReplenishPreKeys success for user %s: added %d keys\n", userID, len(prekeys))
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]int{"added": len(prekeys)})
 }

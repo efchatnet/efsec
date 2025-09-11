@@ -262,8 +262,16 @@ export class EfSecClient {
     async startDMSession(userId) {
         this.ensureInitialized();
         this.ensureAuthenticated();
+        // Convert username to user ID if needed (E2E APIs require user IDs)
+        let actualUserId = userId;
+        if (userId && (userId.length > 10 || /[a-zA-Z]/.test(userId))) {
+            // This appears to be a username, convert to user ID
+            console.log(`[EfSecClient] Converting username ${userId} to user ID for DM session`);
+            actualUserId = await this.lookupUserId(userId);
+            console.log(`[EfSecClient] Resolved ${userId} to user ID: ${actualUserId}`);
+        }
         // Fetch the other user's public key bundle (X3DH key exchange protocol)
-        const keyBundle = await this.fetchKeyBundle(userId);
+        const keyBundle = await this.fetchKeyBundle(actualUserId);
         // Use correct field names from backend API
         if (!keyBundle.identity_public_key) {
             throw new Error('No identity public key found in key bundle');
@@ -286,19 +294,25 @@ export class EfSecClient {
         const sessionData = {
             session,
             sessionId: session.session_id(),
-            userId,
+            userId: actualUserId,
             created: generateSecureUniqueId(),
         };
-        this.sessions.set(userId, sessionData);
-        await this.storeSession(userId, sessionData);
+        this.sessions.set(actualUserId, sessionData);
+        await this.storeSession(actualUserId, sessionData);
         // Notify server that one-time key was consumed (protocol requirement)
-        await this.markOneTimeKeyUsed(userId, keyBundle.one_time_pre_key.key_id.toString());
+        await this.markOneTimeKeyUsed(actualUserId, keyBundle.one_time_pre_key.key_id.toString());
     }
     // PROTOCOL COMPLIANT: Encrypt DM using Double Ratchet
     async encryptDM(userId, message) {
         this.ensureInitialized();
         this.ensureAuthenticated();
-        const storedSession = this.sessions.get(userId);
+        // Convert username to user ID if needed (sessions are stored by user ID)
+        let actualUserId = userId;
+        if (userId && (userId.length > 10 || /[a-zA-Z]/.test(userId))) {
+            // This appears to be a username, convert to user ID
+            actualUserId = await this.lookupUserId(userId);
+        }
+        const storedSession = this.sessions.get(actualUserId);
         if (!storedSession) {
             throw new Error('No session established with user. Call startDMSession first.');
         }
@@ -306,16 +320,22 @@ export class EfSecClient {
         const ciphertext = storedSession.session.encrypt(message);
         const encrypted = new TextEncoder().encode(ciphertext);
         // Store encrypted message in Redis (ephemeral storage)
-        await this.storeEphemeralMessage(userId, encrypted, 'dm');
+        await this.storeEphemeralMessage(actualUserId, encrypted, 'dm');
         // Update session state client-side after encryption
-        await this.storeSession(userId, storedSession);
+        await this.storeSession(actualUserId, storedSession);
         return encrypted;
     }
     // PROTOCOL COMPLIANT: Decrypt DM using Double Ratchet
     async decryptDM(userId, ciphertext) {
         this.ensureInitialized();
         this.ensureAuthenticated();
-        const storedSession = this.sessions.get(userId);
+        // Convert username to user ID if needed (sessions are stored by user ID)
+        let actualUserId = userId;
+        if (userId && (userId.length > 10 || /[a-zA-Z]/.test(userId))) {
+            // This appears to be a username, convert to user ID
+            actualUserId = await this.lookupUserId(userId);
+        }
+        const storedSession = this.sessions.get(actualUserId);
         if (!storedSession) {
             throw new Error('No session established with user');
         }
@@ -323,7 +343,7 @@ export class EfSecClient {
         const ciphertextString = new TextDecoder().decode(ciphertext);
         const plaintext = storedSession.session.decrypt(ciphertextString);
         // Update session state client-side after decryption
-        await this.storeSession(userId, storedSession);
+        await this.storeSession(actualUserId, storedSession);
         return plaintext;
     }
     // PROTOCOL COMPLIANT: Create Megolm group session for group E2E
@@ -552,6 +572,14 @@ export class EfSecClient {
             return;
         }
         try {
+            // Convert username to user ID if needed (E2E APIs require user IDs)
+            let actualUserId = newMemberId;
+            if (newMemberId && (newMemberId.length > 10 || /[a-zA-Z]/.test(newMemberId))) {
+                // This appears to be a username, convert to user ID
+                console.log(`[EfSecClient] Converting username ${newMemberId} to user ID for key distribution`);
+                actualUserId = await this.lookupUserId(newMemberId);
+                console.log(`[EfSecClient] Resolved ${newMemberId} to user ID: ${actualUserId}`);
+            }
             // Prepare key distribution for new member
             const keyDistribution = {
                 groupId,
@@ -560,12 +588,12 @@ export class EfSecClient {
                 messageType: 'key_distribution',
                 timestamp: Date.now(),
             };
-            // Encrypt key distribution for new member using DM session
-            const encryptedKeyDistribution = await this.encryptDM(newMemberId, JSON.stringify(keyDistribution));
-            // Send encrypted key distribution through the messaging system
+            // Encrypt key distribution for new member using DM session (with user ID)
+            const encryptedKeyDistribution = await this.encryptDM(actualUserId, JSON.stringify(keyDistribution));
+            // Send encrypted key distribution through the messaging system (with user ID)
             if (this.messageSender) {
-                await this.messageSender(newMemberId, 'key_distribution', encryptedKeyDistribution);
-                console.log(`Successfully distributed group keys to new member ${newMemberId} in group ${groupId}`);
+                await this.messageSender(actualUserId, 'key_distribution', encryptedKeyDistribution);
+                console.log(`Successfully distributed group keys to new member ${newMemberId} (${actualUserId}) in group ${groupId}`);
             }
             else {
                 console.warn(`No message sender configured - key distribution for ${newMemberId} prepared but not sent`);
@@ -680,6 +708,17 @@ export class EfSecClient {
         if (!response.ok) {
             throw new Error(`Failed to register group session key: ${response.statusText}`);
         }
+    }
+    // Username to User ID lookup for E2E operations
+    async lookupUserId(username) {
+        const response = await fetch(`${this.apiUrl}/api/user/lookup?username=${encodeURIComponent(username)}`, {
+            credentials: 'include',
+        });
+        if (!response.ok) {
+            throw new Error(`Failed to lookup user ID for username ${username}: ${response.status} ${response.statusText}`);
+        }
+        const data = await response.json();
+        return data.user_id;
     }
     // POSTGRESQL: Fetch user's public key bundle for X3DH
     async fetchKeyBundle(userId) {

@@ -6,7 +6,9 @@ export declare class EfSecClient {
     private groupSessions;
     private initialized;
     private keyStorage;
+    private messageSender?;
     constructor(apiUrl: string);
+    setMessageSender(sender: (recipientId: string, messageType: string, encryptedData: Uint8Array) => Promise<void>): void;
     init(userId?: string): Promise<void>;
     private ensureInitialized;
     private ensureAuthenticated;

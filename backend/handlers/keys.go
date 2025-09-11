@@ -17,6 +17,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"github.com/gorilla/mux"
 	"github.com/efchatnet/efsec/backend/models"
@@ -40,11 +41,20 @@ func (h *KeyHandler) RegisterKeys(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Debug logging to see what we actually received
+	fmt.Printf("[KeyHandler] RegisterKeys for user: %s\n", userID)
+	fmt.Printf("[KeyHandler] Registration ID: %d\n", registration.RegistrationID)
+	fmt.Printf("[KeyHandler] Identity key length: %d bytes\n", len(registration.IdentityPublicKey))
+	fmt.Printf("[KeyHandler] Signed pre-key ID: %d\n", registration.SignedPreKey.KeyID)
+	fmt.Printf("[KeyHandler] One-time pre-keys count: %d\n", len(registration.OneTimePreKeys))
+
 	if err := h.store.SaveIdentityKey(userID, registration); err != nil {
+		fmt.Printf("[KeyHandler] Error saving keys for user %s: %v\n", userID, err)
 		http.Error(w, "Failed to save keys", http.StatusInternalServerError)
 		return
 	}
 
+	fmt.Printf("[KeyHandler] Successfully saved keys for user: %s\n", userID)
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{"status": "keys registered"})
 }

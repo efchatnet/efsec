@@ -17,6 +17,16 @@ function generateSecureId() {
     crypto.getRandomValues(array);
     return array[0].toString() + array[1].toString();
 }
+function generateRegistrationId() {
+    const array = new Uint32Array(1);
+    crypto.getRandomValues(array);
+    return array[0] & 0x3FFF; // 14-bit ID as per Matrix spec
+}
+function generateSignedPreKeyId() {
+    const array = new Uint32Array(1);
+    crypto.getRandomValues(array);
+    return array[0] & 0xFFFFFF; // 24-bit ID
+}
 // Helper function for secure timestamp generation (time + randomness)
 function generateSecureTimestamp() {
     const time = Date.now();
@@ -42,6 +52,10 @@ export class EfSecClient {
         this.initialized = false;
         this.keyStorage = null;
         this.apiUrl = apiUrl;
+    }
+    // Set message sender callback for key distribution
+    setMessageSender(sender) {
+        this.messageSender = sender;
     }
     // eslint-disable-next-line max-lines-per-function
     async init(userId) {
@@ -185,6 +199,24 @@ export class EfSecClient {
         // PROTOCOL REQUIREMENT: Store public keys in PostgreSQL for permanence
         // X3DH requires these to be available for key exchange
         try {
+            const keyRegistrationPayload = {
+                // Convert keys to match backend KeyRegistration struct format
+                registration_id: generateRegistrationId(), // Random ID for this device
+                identity_public_key: identityKeys.curve25519, // PUBLIC KEY BYTES
+                signed_pre_key: {
+                    key_id: generateSignedPreKeyId(),
+                    public_key: identityKeys.curve25519, // PUBLIC KEY BYTES
+                    signature: identityKeys.ed25519, // SIGNATURE BYTES
+                },
+                one_time_pre_keys: Object.entries(oneTimeKeys).map(([keyId, publicKey]) => ({
+                    key_id: parseInt(keyId),
+                    public_key: publicKey, // PUBLIC KEY BYTES
+                })),
+                // Optional: Add Kyber post-quantum keys if available
+                kyber_pre_keys: [],
+            };
+            console.log('[EfSecClient] Registering keys for user:', this.userId);
+            console.log('[EfSecClient] Key payload:', JSON.stringify(keyRegistrationPayload, null, 2));
             const response = await fetch(`${this.apiUrl}/api/e2e/keys`, {
                 method: 'POST',
                 credentials: 'include',
@@ -192,25 +224,7 @@ export class EfSecClient {
                     'Content-Type': 'application/json',
                     'X-CSRF-Token': getCookie('csrf_token'),
                 },
-                body: JSON.stringify({
-                    userId: this.userId,
-                    // PostgreSQL: Identity keys (permanent until device change)
-                    identityKeys: {
-                        curve25519: identityKeys.curve25519, // PUBLIC KEY - stored in PostgreSQL
-                        ed25519: identityKeys.ed25519, // PUBLIC KEY - stored in PostgreSQL
-                    },
-                    // PostgreSQL: One-time prekeys (consumed once per X3DH exchange)
-                    oneTimeKeys: Object.entries(oneTimeKeys).map(([id, key]) => ({
-                        keyId: id,
-                        publicKey: key, // PUBLIC KEY ONLY - stored in PostgreSQL until used
-                    })),
-                    // PostgreSQL: Signed prekey (rotated periodically)
-                    signedPreKey: {
-                        keyId: generateSecureId(),
-                        publicKey: identityKeys.curve25519, // PUBLIC KEY - stored in PostgreSQL
-                        signature: identityKeys.ed25519, // PUBLIC SIGNATURE - stored in PostgreSQL
-                    },
-                }),
+                body: JSON.stringify(keyRegistrationPayload),
             });
             if (!response.ok) {
                 const contentType = response.headers.get('content-type');
@@ -250,31 +264,23 @@ export class EfSecClient {
         this.ensureAuthenticated();
         // Fetch the other user's public key bundle (X3DH key exchange protocol)
         const keyBundle = await this.fetchKeyBundle(userId);
-        let identityKeys, oneTimeKeys;
-        try {
-            identityKeys = JSON.parse(keyBundle.identityKeys);
+        // Use correct field names from backend API
+        if (!keyBundle.identity_public_key) {
+            throw new Error('No identity public key found in key bundle');
         }
-        catch (error) {
-            throw new Error(`Failed to parse identity keys from key bundle: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
+        if (!keyBundle.one_time_pre_key) {
+            throw new Error('No one-time pre-key found in key bundle');
         }
-        try {
-            oneTimeKeys = JSON.parse(keyBundle.oneTimeKeys);
-        }
-        catch (error) {
-            throw new Error(`Failed to parse one-time keys from key bundle: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
-        }
-        // X3DH Protocol: Select one-time key
-        const oneTimeKeyIds = Object.keys(oneTimeKeys);
-        if (oneTimeKeyIds.length === 0) {
-            throw new Error('No one-time keys available for user - X3DH requires one-time key');
-        }
-        const oneTimeKey = oneTimeKeys[oneTimeKeyIds[0]];
+        // Convert raw bytes to proper format for vodozemac
+        const identityKeys = keyBundle.identity_public_key;
+        // X3DH Protocol: Use the one-time key directly
+        const oneTimeKey = keyBundle.one_time_pre_key.public_key;
         // Double Ratchet: Create outbound session
         if (!this.account) {
             throw new Error('Account not initialized');
         }
-        const session = this.account.create_outbound_session(identityKeys.curve25519, // Identity key
-        oneTimeKey // One-time key
+        const session = this.account.create_outbound_session(identityKeys, // Identity key (raw bytes)
+        oneTimeKey // One-time key (raw bytes)
         );
         // Store session client-side (private keys never leave client)
         const sessionData = {
@@ -286,7 +292,7 @@ export class EfSecClient {
         this.sessions.set(userId, sessionData);
         await this.storeSession(userId, sessionData);
         // Notify server that one-time key was consumed (protocol requirement)
-        await this.markOneTimeKeyUsed(userId, oneTimeKeyIds[0]);
+        await this.markOneTimeKeyUsed(userId, keyBundle.one_time_pre_key.key_id.toString());
     }
     // PROTOCOL COMPLIANT: Encrypt DM using Double Ratchet
     async encryptDM(userId, message) {
@@ -551,17 +557,24 @@ export class EfSecClient {
                 groupId,
                 sessionKey: Array.from(groupSession.outbound.session_key()),
                 sessionId: groupSession.sessionId,
+                messageType: 'key_distribution',
+                timestamp: Date.now(),
             };
             // Encrypt key distribution for new member using DM session
             const encryptedKeyDistribution = await this.encryptDM(newMemberId, JSON.stringify(keyDistribution));
-            console.log(`Distributed group keys to new member ${newMemberId} in group ${groupId}`);
-            // Note: In a full implementation, this would send the encrypted key distribution
-            // through the messaging infrastructure to reach the new member
-            // For now, we log successful key preparation
+            // Send encrypted key distribution through the messaging system
+            if (this.messageSender) {
+                await this.messageSender(newMemberId, 'key_distribution', encryptedKeyDistribution);
+                console.log(`Successfully distributed group keys to new member ${newMemberId} in group ${groupId}`);
+            }
+            else {
+                console.warn(`No message sender configured - key distribution for ${newMemberId} prepared but not sent`);
+                // Still complete successfully since key preparation worked
+            }
         }
         catch (error) {
-            console.warn(`Failed to distribute keys to new member ${newMemberId}:`, error);
-            // Don't throw - this is not critical for group functionality
+            console.error(`Failed to distribute keys to new member ${newMemberId}:`, error);
+            throw error; // Throw so frontend can handle the error properly
         }
     }
     // Protocol helper methods for storage and key management
@@ -622,15 +635,31 @@ export class EfSecClient {
     }
     // POSTGRESQL: Mark one-time key as used (protocol requirement)
     async markOneTimeKeyUsed(userId, keyId) {
-        const response = await fetch(`${this.apiUrl}/api/e2e/keys/one-time/${userId}/${keyId}/used`, {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-                'X-CSRF-Token': getCookie('csrf_token'),
-            },
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to mark one-time key as used: ${response.statusText}`);
+        try {
+            const response = await fetch(`${this.apiUrl}/api/e2e/keys/one-time/${userId}/${keyId}/used`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: {
+                    'X-CSRF-Token': getCookie('csrf_token'),
+                },
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to mark one-time key as used: ${response.statusText}`);
+            }
+            // Try to parse JSON response if present, but don't fail if empty
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+                try {
+                    await response.json(); // Consume the response but don't use it
+                }
+                catch (parseError) {
+                    // Ignore JSON parse errors - some endpoints return empty success responses
+                }
+            }
+        }
+        catch (error) {
+            // Log error but don't fail session establishment over this
+            console.warn(`Failed to mark one-time key as used for user ${userId}, key ${keyId}:`, error);
         }
     }
     // POSTGRESQL: Register group session key for distribution
@@ -662,6 +691,8 @@ export class EfSecClient {
         }
         try {
             const data = await response.json();
+            // Debug logging to see what we actually received
+            console.log('[DEBUG] Raw key bundle response for user', userId, ':', JSON.stringify(data, null, 2));
             // Check if it's an error response from unimplemented endpoint
             if (data.error === 'not implemented') {
                 throw new Error('Key bundle endpoint not yet implemented');

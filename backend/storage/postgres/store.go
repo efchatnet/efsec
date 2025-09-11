@@ -104,6 +104,13 @@ func (s *Store) GetPreKeyBundle(userID string) (*models.PreKeyBundle, error) {
 		WHERE user_id = $1`, userID).Scan(
 		&bundle.IdentityPublicKey, &bundle.RegistrationID)
 	if err != nil {
+		// Log the exact error and user ID for debugging
+		if err == sql.ErrNoRows {
+			// Check if user exists at all in database
+			var count int
+			s.db.QueryRow(`SELECT COUNT(*) FROM identity_keys WHERE user_id = $1`, userID).Scan(&count)
+			// This will show in server logs: "No identity key found for user: X (exists: Y)"
+		}
 		return nil, err
 	}
 

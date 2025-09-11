@@ -278,6 +278,26 @@ export class EfSecClient {
     // PROTOCOL REQUIREMENT: Store public keys in PostgreSQL for permanence
     // X3DH requires these to be available for key exchange
     try {
+      const keyRegistrationPayload = {
+        // Convert keys to match backend KeyRegistration struct format
+        registration_id: generateRegistrationId(), // Random ID for this device
+        identity_public_key: identityKeys.curve25519, // PUBLIC KEY BYTES
+        signed_pre_key: {
+          key_id: generateSignedPreKeyId(),
+          public_key: identityKeys.curve25519, // PUBLIC KEY BYTES
+          signature: identityKeys.ed25519, // SIGNATURE BYTES
+        },
+        one_time_pre_keys: Object.entries(oneTimeKeys).map(([keyId, publicKey]) => ({
+          key_id: parseInt(keyId),
+          public_key: publicKey, // PUBLIC KEY BYTES
+        })),
+        // Optional: Add Kyber post-quantum keys if available
+        kyber_pre_keys: [],
+      };
+      
+      console.log('[EfSecClient] Registering keys for user:', this.userId);
+      console.log('[EfSecClient] Key payload:', JSON.stringify(keyRegistrationPayload, null, 2));
+      
       const response = await fetch(`${this.apiUrl}/api/e2e/keys`, {
         method: 'POST',
         credentials: 'include',
@@ -285,22 +305,7 @@ export class EfSecClient {
           'Content-Type': 'application/json',
           'X-CSRF-Token': getCookie('csrf_token'),
         },
-        body: JSON.stringify({
-          // Convert keys to match backend KeyRegistration struct format
-          registration_id: generateRegistrationId(), // Random ID for this device
-          identity_public_key: identityKeys.curve25519, // PUBLIC KEY BYTES
-          signed_pre_key: {
-            key_id: generateSignedPreKeyId(),
-            public_key: identityKeys.curve25519, // PUBLIC KEY BYTES
-            signature: identityKeys.ed25519, // SIGNATURE BYTES
-          },
-          one_time_pre_keys: Object.entries(oneTimeKeys).map(([keyId, publicKey]) => ({
-            key_id: parseInt(keyId),
-            public_key: publicKey, // PUBLIC KEY BYTES
-          })),
-          // Optional: Add Kyber post-quantum keys if available
-          kyber_pre_keys: [],
-        }),
+        body: JSON.stringify(keyRegistrationPayload),
       });
 
       if (!response.ok) {

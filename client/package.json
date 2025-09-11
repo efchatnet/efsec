@@ -1,6 +1,6 @@
 {
   "name": "@efchatnet/efsec",
-  "version": "0.2.29",
+  "version": "0.2.30",
   "type": "module",
   "description": "End-to-end encryption library using Double Ratchet and Megolm protocols",
   "main": "dist/index.js",

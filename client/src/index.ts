@@ -53,6 +53,18 @@ function generateSecureId(): string {
   return array[0].toString() + array[1].toString();
 }
 
+function generateRegistrationId(): number {
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return array[0] & 0x3FFF; // 14-bit ID as per Matrix spec
+}
+
+function generateSignedPreKeyId(): number {
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return array[0] & 0xFFFFFF; // 24-bit ID
+}
+
 // Helper function for secure timestamp generation (time + randomness)
 function generateSecureTimestamp(): number {
   const time = Date.now();
@@ -268,23 +280,20 @@ export class EfSecClient {
           'X-CSRF-Token': getCookie('csrf_token'),
         },
         body: JSON.stringify({
-          userId: this.userId,
-          // PostgreSQL: Identity keys (permanent until device change)
-          identityKeys: {
-            curve25519: identityKeys.curve25519, // PUBLIC KEY - stored in PostgreSQL
-            ed25519: identityKeys.ed25519, // PUBLIC KEY - stored in PostgreSQL
+          // Convert keys to match backend KeyRegistration struct format
+          registration_id: generateRegistrationId(), // Random ID for this device
+          identity_public_key: identityKeys.curve25519, // PUBLIC KEY BYTES
+          signed_pre_key: {
+            key_id: generateSignedPreKeyId(),
+            public_key: identityKeys.curve25519, // PUBLIC KEY BYTES
+            signature: identityKeys.ed25519, // SIGNATURE BYTES
           },
-          // PostgreSQL: One-time prekeys (consumed once per X3DH exchange)
-          oneTimeKeys: Object.entries(oneTimeKeys).map(([id, key]) => ({
-            keyId: id,
-            publicKey: key, // PUBLIC KEY ONLY - stored in PostgreSQL until used
+          one_time_pre_keys: Object.entries(oneTimeKeys).map(([keyId, publicKey]) => ({
+            key_id: parseInt(keyId),
+            public_key: publicKey, // PUBLIC KEY BYTES
           })),
-          // PostgreSQL: Signed prekey (rotated periodically)
-          signedPreKey: {
-            keyId: generateSecureId(),
-            publicKey: identityKeys.curve25519, // PUBLIC KEY - stored in PostgreSQL
-            signature: identityKeys.ed25519, // PUBLIC SIGNATURE - stored in PostgreSQL
-          },
+          // Optional: Add Kyber post-quantum keys if available
+          kyber_pre_keys: [],
         }),
       });
 

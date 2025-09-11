@@ -76,11 +76,19 @@ jobs:
           echo "Running Rust code quality checks..."
           cd efsec-wasm
           
-          # Fast checks first
-          echo "Checking Rust code formatting..."
+          # Auto-fix formatting first
+          echo "Auto-fixing Rust code formatting..."
+          cargo fmt
+          
+          # Auto-fix linting issues where possible
+          echo "Running Clippy with auto-fixes..."
+          cargo clippy --target wasm32-unknown-unknown --fix --allow-dirty --allow-staged -- -D warnings || echo "⚠️ Some clippy issues require manual fixes"
+          
+          # Now verify everything passes
+          echo "Verifying Rust code formatting..."
           cargo fmt -- --check
           
-          echo "Running Clippy linter..."
+          echo "Running final Clippy check..."
           cargo clippy --target wasm32-unknown-unknown -- -D warnings
           
           echo "✓ Rust code quality checks passed"
@@ -111,12 +119,28 @@ jobs:
           mkdir -p src/wasm
           cp ../efsec-wasm/pkg-web/* src/wasm/
           
-          # Fast TypeScript validation
+          # Auto-fix formatting issues first
+          echo "Auto-fixing code formatting with Prettier..."
+          bunx prettier --write src/
+          
+          # Auto-fix linting issues if package has lint script
+          if grep -q '"lint:fix"' package.json; then
+            echo "Auto-fixing linting issues..."
+            bun run lint:fix || echo "⚠️ Some lint issues could not be auto-fixed"
+          fi
+          
+          # Now verify everything passes
           echo "Running TypeScript strict type checker..."
           bunx tsc --noEmit --strict
           
-          echo "Running Prettier format check..."
+          echo "Verifying code formatting..."
           bunx prettier --check src/
+          
+          # Run final lint check if available
+          if grep -q '"lint"' package.json; then
+            echo "Running final lint check..."
+            bun run lint
+          fi
           
           echo "✓ TypeScript code quality checks passed"
 

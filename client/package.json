@@ -41,7 +41,9 @@
     "registry": "https://npm.pkg.github.com",
     "@efchatnet:registry": "https://npm.pkg.github.com"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@matrix-org/olm": "^3.2.15"
+  },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "prettier": "^3.0.0",

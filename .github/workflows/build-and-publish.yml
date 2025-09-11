@@ -51,10 +51,42 @@ jobs:
           
           echo "✓ vodozemac source verification complete"
 
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    needs: verify-source
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
+
+      - name: Audit Rust dependencies
+        run: cd efsec-wasm && cargo audit --ignore RUSTSEC-0000-0000
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Audit Node.js dependencies  
+        run: |
+          cd client
+          bun audit
+
   build-wasm:
     name: Build Universal WASM + TypeScript Package
     runs-on: ubuntu-latest
-    needs: verify-source
+    needs: security-audit
     strategy:
       matrix:
         target: [web, bundler, nodejs]
@@ -438,34 +470,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  security-audit:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    needs: verify-source
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Setup Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Install cargo-audit
-        run: cargo install cargo-audit
-
-      - name: Audit Rust dependencies
-        run: cd efsec-wasm && cargo audit --ignore RUSTSEC-0000-0000
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
-        with:
-          bun-version: latest
-
-      - name: Audit Node.js dependencies  
-        run: |
-          cd client
-          bun audit

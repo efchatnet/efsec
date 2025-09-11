@@ -94,9 +94,15 @@ export class EfSecClient {
   private groupSessions: Map<string, StoredGroupSession> = new Map();
   private initialized = false;
   private keyStorage: IDBDatabase | null = null;
+  private messageSender?: (recipientId: string, messageType: string, encryptedData: Uint8Array) => Promise<void>;
 
   constructor(apiUrl: string) {
     this.apiUrl = apiUrl;
+  }
+
+  // Set message sender callback for key distribution
+  setMessageSender(sender: (recipientId: string, messageType: string, encryptedData: Uint8Array) => Promise<void>): void {
+    this.messageSender = sender;
   }
 
   // eslint-disable-next-line max-lines-per-function
@@ -712,6 +718,8 @@ export class EfSecClient {
         groupId,
         sessionKey: Array.from(groupSession.outbound.session_key()),
         sessionId: groupSession.sessionId,
+        messageType: 'key_distribution',
+        timestamp: Date.now(),
       };
       
       // Encrypt key distribution for new member using DM session
@@ -720,14 +728,17 @@ export class EfSecClient {
         JSON.stringify(keyDistribution)
       );
       
-      console.log(`Distributed group keys to new member ${newMemberId} in group ${groupId}`);
-      
-      // Note: In a full implementation, this would send the encrypted key distribution
-      // through the messaging infrastructure to reach the new member
-      // For now, we log successful key preparation
+      // Send encrypted key distribution through the messaging system
+      if (this.messageSender) {
+        await this.messageSender(newMemberId, 'key_distribution', encryptedKeyDistribution);
+        console.log(`Successfully distributed group keys to new member ${newMemberId} in group ${groupId}`);
+      } else {
+        console.warn(`No message sender configured - key distribution for ${newMemberId} prepared but not sent`);
+        // Still complete successfully since key preparation worked
+      }
     } catch (error) {
-      console.warn(`Failed to distribute keys to new member ${newMemberId}:`, error);
-      // Don't throw - this is not critical for group functionality
+      console.error(`Failed to distribute keys to new member ${newMemberId}:`, error);
+      throw error; // Throw so frontend can handle the error properly
     }
   }
 

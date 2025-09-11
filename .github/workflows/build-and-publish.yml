@@ -259,16 +259,17 @@ jobs:
             fi
           fi
 
+      - name: Setup Bun (web target only)
+        if: matrix.target == 'web'
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
       - name: Build TypeScript client (web target only)
         if: matrix.target == 'web'
         run: |
           echo "Building TypeScript client with WASM bindings..."
           cd client
-          
-          # Setup Bun
-          curl -fsSL https://bun.sh/install | bash
-          export PATH="$HOME/.bun/bin:$PATH"
-          
           bun install
           bun run build
           ls -la dist/

@@ -87,7 +87,7 @@ func (h *DMHandler) GetDMs(w http.ResponseWriter, r *http.Request) {
 func (h *DMHandler) GetDMsWith(w http.ResponseWriter, r *http.Request) {
 	userID := r.Context().Value("user_id").(string)
 	vars := mux.Vars(r)
-	otherUserID := vars["userId"]
+	otherUserID := vars["user_id"]
 	
 	limit := 100 // default limit
 	

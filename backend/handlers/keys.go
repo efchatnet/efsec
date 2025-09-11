@@ -51,7 +51,7 @@ func (h *KeyHandler) RegisterKeys(w http.ResponseWriter, r *http.Request) {
 
 func (h *KeyHandler) GetPreKeyBundle(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	userID := vars["userId"]
+	userID := vars["user_id"]
 
 	bundle, err := h.store.GetPreKeyBundle(userID)
 	if err != nil {

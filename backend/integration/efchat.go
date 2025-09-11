@@ -86,7 +86,7 @@ func (e *E2EIntegration) RegisterRoutes(router *mux.Router, authMiddleware func(
 	
 	// Key management endpoints
 	api.HandleFunc("/keys", e.keyHandler.RegisterKeys).Methods("POST", "OPTIONS")
-	api.HandleFunc("/bundle/{userId}", e.keyHandler.GetPreKeyBundle).Methods("GET", "OPTIONS")
+	api.HandleFunc("/bundle/{user_id}", e.keyHandler.GetPreKeyBundle).Methods("GET", "OPTIONS")
 	api.HandleFunc("/keys/replenish", e.keyHandler.ReplenishPreKeys).Methods("POST", "OPTIONS")
 	api.HandleFunc("/keys/status", e.GetKeyStatus).Methods("GET", "OPTIONS")
 	
@@ -111,7 +111,7 @@ func (e *E2EIntegration) RegisterRoutes(router *mux.Router, authMiddleware func(
 	// DM endpoints (for encrypted direct messages and key distribution)
 	api.HandleFunc("/dm/send", e.dmHandler.SendDM).Methods("POST", "OPTIONS")
 	api.HandleFunc("/dm/messages", e.dmHandler.GetDMs).Methods("GET", "OPTIONS")
-	api.HandleFunc("/dm/messages/{userId}", e.dmHandler.GetDMsWith).Methods("GET", "OPTIONS")
+	api.HandleFunc("/dm/messages/{user_id}", e.dmHandler.GetDMsWith).Methods("GET", "OPTIONS")
 	api.HandleFunc("/dm/message/{messageId}/read", e.dmHandler.MarkDMRead).Methods("POST", "OPTIONS")
 	api.HandleFunc("/dm/message/{messageId}", e.dmHandler.DeleteDM).Methods("DELETE", "OPTIONS")
 }

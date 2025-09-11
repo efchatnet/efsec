@@ -92,7 +92,7 @@ func main() {
 
 	// Key management endpoints
 	api.HandleFunc("/keys", keyHandler.RegisterKeys).Methods("POST")
-	api.HandleFunc("/bundle/{userId}", keyHandler.GetPreKeyBundle).Methods("GET")
+	api.HandleFunc("/bundle/{user_id}", keyHandler.GetPreKeyBundle).Methods("GET")
 	api.HandleFunc("/keys/replenish", keyHandler.ReplenishPreKeys).Methods("POST")
 
 	// Group endpoints
@@ -105,7 +105,7 @@ func main() {
 	// DM endpoints (for encrypted direct messages and key distribution)
 	api.HandleFunc("/dm/send", dmHandler.SendDM).Methods("POST")
 	api.HandleFunc("/dm/messages", dmHandler.GetDMs).Methods("GET")
-	api.HandleFunc("/dm/messages/{userId}", dmHandler.GetDMsWith).Methods("GET")
+	api.HandleFunc("/dm/messages/{user_id}", dmHandler.GetDMsWith).Methods("GET")
 	api.HandleFunc("/dm/message/{messageId}/read", dmHandler.MarkDMRead).Methods("POST")
 	api.HandleFunc("/dm/message/{messageId}", dmHandler.DeleteDM).Methods("DELETE")
 

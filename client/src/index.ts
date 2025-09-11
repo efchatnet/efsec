@@ -14,8 +14,22 @@ let EfSecOutboundGroupSession: (new () => any) | null = null;
 let EfSecInboundGroupSession: (new (session_key: string) => any) | null = null;
 
 interface KeyBundle {
-  identityKeys: string;
-  oneTimeKeys: string;
+  registration_id: number;
+  identity_public_key: Uint8Array;
+  signed_pre_key: {
+    key_id: number;
+    public_key: Uint8Array;
+    signature: Uint8Array;
+  };
+  one_time_pre_key?: {
+    key_id: number;
+    public_key: Uint8Array;
+  };
+  kyber_pre_key?: {
+    key_id: number;
+    public_key: Uint8Array;
+    signature: Uint8Array;
+  };
 }
 
 interface StoredSession {
@@ -316,18 +330,20 @@ export class EfSecClient {
     // Fetch the other user's public key bundle (X3DH key exchange protocol)
     const keyBundle = await this.fetchKeyBundle(userId);
     
-    let identityKeys, oneTimeKeys;
-    try {
-      identityKeys = JSON.parse(keyBundle.identityKeys);
-    } catch (error) {
-      throw new Error(`Failed to parse identity keys from key bundle: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
+    // Use correct field names from backend API
+    if (!keyBundle.identity_public_key) {
+      throw new Error('No identity public key found in key bundle');
     }
     
-    try {
-      oneTimeKeys = JSON.parse(keyBundle.oneTimeKeys);
-    } catch (error) {
-      throw new Error(`Failed to parse one-time keys from key bundle: ${error instanceof Error ? error.message : 'Invalid JSON'}`);
+    if (!keyBundle.one_time_pre_key) {
+      throw new Error('No one-time pre-key found in key bundle');
     }
+
+    // Convert raw bytes to proper format for vodozemac
+    const identityKeys = keyBundle.identity_public_key;
+    const oneTimeKeys = {
+      [keyBundle.one_time_pre_key.key_id]: keyBundle.one_time_pre_key.public_key
+    };
 
     // X3DH Protocol: Select one-time key
     const oneTimeKeyIds = Object.keys(oneTimeKeys);

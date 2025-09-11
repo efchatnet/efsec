@@ -851,6 +851,9 @@ export class EfSecClient {
     try {
       const data = await response.json();
       
+      // Debug logging to see what we actually received
+      console.log('[DEBUG] Raw key bundle response for user', userId, ':', JSON.stringify(data, null, 2));
+      
       // Check if it's an error response from unimplemented endpoint
       if (data.error === 'not implemented') {
         throw new Error('Key bundle endpoint not yet implemented');

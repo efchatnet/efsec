@@ -171,6 +171,11 @@ func (s *Store) GetPreKeyBundle(userID string) (*models.PreKeyBundle, error) {
 		return nil, err
 	}
 
+	// Validate bundle has required data
+	if bundle.RegistrationID == 0 || len(bundle.IdentityPublicKey) == 0 {
+		return nil, sql.ErrNoRows // Treat as "user not found" to force re-registration
+	}
+
 	return bundle, nil
 }
 

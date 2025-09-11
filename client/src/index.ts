@@ -813,16 +813,31 @@ export class EfSecClient {
 
   // POSTGRESQL: Mark one-time key as used (protocol requirement)
   private async markOneTimeKeyUsed(userId: string, keyId: string): Promise<void> {
-    const response = await fetch(`${this.apiUrl}/api/e2e/keys/one-time/${userId}/${keyId}/used`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: {
-        'X-CSRF-Token': getCookie('csrf_token'),
-      },
-    });
+    try {
+      const response = await fetch(`${this.apiUrl}/api/e2e/keys/one-time/${userId}/${keyId}/used`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'X-CSRF-Token': getCookie('csrf_token'),
+        },
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to mark one-time key as used: ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`Failed to mark one-time key as used: ${response.statusText}`);
+      }
+
+      // Try to parse JSON response if present, but don't fail if empty
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        try {
+          await response.json(); // Consume the response but don't use it
+        } catch (parseError) {
+          // Ignore JSON parse errors - some endpoints return empty success responses
+        }
+      }
+    } catch (error) {
+      // Log error but don't fail session establishment over this
+      console.warn(`Failed to mark one-time key as used for user ${userId}, key ${keyId}:`, error);
     }
   }
 

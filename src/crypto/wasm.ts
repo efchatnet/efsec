@@ -149,17 +149,26 @@ export async function createOutboundSession(
   const deviceIds = [currentDeviceId, remotePreKeyBundle.deviceId].sort();
   const sessionId = `session_${deviceIds[0]}_${deviceIds[1]}`;
 
+  // Create deterministic session state based on both users' keys in sorted order
+  // This ensures both users derive the same session state regardless of who initiates
+  const allKeys = [
+    localIdentityKeys.curve25519.key,
+    localIdentityKeys.ed25519.key,
+    remotePreKeyBundle.identityKey,
+    remotePreKeyBundle.signedPreKey,
+  ].sort();
+
   return {
     sessionId,
     remoteUserId: remotePreKeyBundle.userId,
     remoteDeviceId: remotePreKeyBundle.deviceId,
     state: {
-      rootKey: localIdentityKeys.curve25519.key,
-      chainKey: remotePreKeyBundle.identityKey,
-      nextHeaderKey: remotePreKeyBundle.signedPreKey,
-      headerKey: localIdentityKeys.ed25519.key,
+      rootKey: allKeys[0],
+      chainKey: allKeys[1],
+      nextHeaderKey: allKeys[2],
+      headerKey: allKeys[3],
       messageKeys: {},
-      sendingChain: { chainKey: localIdentityKeys.curve25519.key, messageNumber: 0 },
+      sendingChain: { chainKey: allKeys[0], messageNumber: 0 },
       receivingChains: [],
       previousCounter: 0,
     },

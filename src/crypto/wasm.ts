@@ -15,7 +15,6 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import { randomUUID } from 'node:crypto';
 import * as MatrixCrypto from '@matrix-org/matrix-sdk-crypto-wasm';
 import type {
   ClaimedOneTimeKey,
@@ -33,6 +32,19 @@ let isInitialized = false;
 let olmMachine: MatrixCrypto.OlmMachine | null = null;
 let currentUserId: string | null = null;
 let currentDeviceId: string | null = null;
+
+// Fallback for environments where crypto.randomUUID is not available
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback UUID generation
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 export async function initializeWasm(): Promise<void> {
   if (isInitialized) {
@@ -330,7 +342,7 @@ export async function decryptToDeviceMessage(
               content:
                 typeof actualContent === 'string' ? actualContent : JSON.stringify(actualContent),
               timestamp: parsedContent.content?.timestamp || Date.now(),
-              messageId: parsedContent.content?.messageId || randomUUID(),
+              messageId: parsedContent.content?.messageId || generateUUID(),
             };
           }
         }
@@ -349,7 +361,7 @@ export async function decryptToDeviceMessage(
             content:
               typeof actualContent === 'string' ? actualContent : JSON.stringify(actualContent),
             timestamp: parsedContent.content?.timestamp || Date.now(),
-            messageId: parsedContent.content?.messageId || randomUUID(),
+            messageId: parsedContent.content?.messageId || generateUUID(),
           };
         }
       }

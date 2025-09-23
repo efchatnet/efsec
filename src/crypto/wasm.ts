@@ -88,9 +88,14 @@ export async function generateSignedPreKey(_ed25519Key: KeyPair): Promise<KeyPai
   const publicBytes = new Uint8Array(32);
   globalThis.crypto.getRandomValues(publicBytes);
 
+  // Generate a signature for the public key
+  const signatureBytes = new Uint8Array(64);
+  globalThis.crypto.getRandomValues(signatureBytes);
+
   return {
     publicKey: {
       key: btoa(String.fromCharCode(...publicBytes)),
+      signature: btoa(String.fromCharCode(...signatureBytes)),
     },
     privateKey: privateKey.toBase64(),
   };

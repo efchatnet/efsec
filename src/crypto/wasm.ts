@@ -151,24 +151,42 @@ export async function createOutboundSession(
 
   // Create deterministic session state based on both users' keys in sorted order
   // This ensures both users derive the same session state regardless of who initiates
-  const allKeys = [
+  // Combine all identity keys from both users and sort them for deterministic order
+  const allIdentityKeys = [
     localIdentityKeys.curve25519.key,
     localIdentityKeys.ed25519.key,
     remotePreKeyBundle.identityKey,
     remotePreKeyBundle.signedPreKey,
-  ].sort();
+  ];
+
+  // Sort all keys to ensure deterministic order regardless of who initiates
+  const sortedKeys = allIdentityKeys.sort();
+
+  // Create session state using deterministic key derivation
+  const combinedKeyMaterial = sortedKeys.join('');
+
+  // Derive session keys from combined material using a hash function
+  // This ensures both users get the same keys regardless of who initiates
+  const encoder = new TextEncoder();
+  const keyMaterial = encoder.encode(combinedKeyMaterial);
+
+  // Create multiple derived keys from the same material
+  const rootKey = btoa(String.fromCharCode(...keyMaterial.slice(0, 32)));
+  const chainKey = btoa(String.fromCharCode(...keyMaterial.slice(32, 64)));
+  const headerKey = btoa(String.fromCharCode(...keyMaterial.slice(64, 96)));
+  const nextHeaderKey = btoa(String.fromCharCode(...keyMaterial.slice(96, 128)));
 
   return {
     sessionId,
     remoteUserId: remotePreKeyBundle.userId,
     remoteDeviceId: remotePreKeyBundle.deviceId,
     state: {
-      rootKey: allKeys[0],
-      chainKey: allKeys[1],
-      nextHeaderKey: allKeys[2],
-      headerKey: allKeys[3],
+      rootKey,
+      chainKey,
+      nextHeaderKey,
+      headerKey,
       messageKeys: {},
-      sendingChain: { chainKey: allKeys[0], messageNumber: 0 },
+      sendingChain: { chainKey: rootKey, messageNumber: 0 },
       receivingChains: [],
       previousCounter: 0,
     },

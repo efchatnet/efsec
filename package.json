@@ -1,6 +1,6 @@
 {
   "name": "efsec",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Zero-knowledge E2E encryption for Matrix protocol",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -14,7 +14,10 @@
     "registry": "https://registry.npmjs.org/"
   },
   "license": "MIT",
-  "files": ["dist", "wasm"],
+  "files": [
+    "dist",
+    "wasm"
+  ],
   "scripts": {
     "build": "tsc && cp -r wasm dist/ 2>/dev/null || true",
     "dev": "tsc --watch",
@@ -26,7 +29,14 @@
     "prepare": "npm run build",
     "prepublishOnly": "npm run clean && npm run build"
   },
-  "keywords": ["encryption", "e2e", "matrix", "vodozemac", "zero-knowledge", "crypto"],
+  "keywords": [
+    "encryption",
+    "e2e",
+    "matrix",
+    "vodozemac",
+    "zero-knowledge",
+    "crypto"
+  ],
   "dependencies": {
     "@matrix-org/matrix-sdk-crypto-wasm": "^15.3.0"
   },

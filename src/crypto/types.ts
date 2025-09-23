@@ -128,3 +128,15 @@ export class KeyError extends Error implements CryptoError {
     this.name = 'KeyError';
   }
 }
+
+export interface OneTimeKey {
+  readonly id: string;
+  readonly key: string;
+}
+
+export interface ClaimedOneTimeKey {
+  readonly id: string;
+  readonly key: string;
+  readonly userId: string;
+  readonly deviceId: string;
+}

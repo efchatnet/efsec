@@ -23,11 +23,14 @@ import type {
   PlaintextMessage,
   PreKeyBundle,
   Session,
+  OneTimeKey,
+  ClaimedOneTimeKey,
 } from './types.js';
 import { MessageType } from './types.js';
 
 let isInitialized = false;
 let olmMachine: MatrixCrypto.OlmMachine | null = null;
+let currentUserId: string | null = null;
 let currentDeviceId: string | null = null;
 
 export async function initializeWasm(): Promise<void> {
@@ -54,6 +57,7 @@ export async function createOlmMachine(userId: string, deviceId: string): Promis
       new MatrixCrypto.UserId(userId),
       new MatrixCrypto.DeviceId(deviceId)
     );
+    currentUserId = userId;
     currentDeviceId = deviceId;
   } catch (error) {
     console.error('Failed to create OlmMachine:', error);
@@ -82,114 +86,147 @@ export async function generateIdentityKeyPair(): Promise<IdentityKeys> {
   };
 }
 
-export async function generateSignedPreKey(_ed25519Key: KeyPair): Promise<KeyPair> {
-  // Matrix SDK handles prekey generation internally through OlmMachine
-  // We generate a temporary key for compatibility with our interface
-  const privateKey = MatrixCrypto.Curve25519SecretKey.new();
+export async function generateOneTimeKeys(count: number): Promise<OneTimeKey[]> {
+  const machine = getOlmMachine();
 
-  // Use a deterministic public key derivation approach
-  // In practice, Matrix SDK handles this internally
-  const publicKeyBytes = privateKey.toUint8Array();
-  const publicKey = new MatrixCrypto.Curve25519PublicKey(
-    btoa(String.fromCharCode(...publicKeyBytes.slice(0, 32)))
-  );
+  await machine.generateOneTimeKeys(count);
+  const oneTimeKeys = machine.oneTimeKeys();
 
-  // Generate a signature using random bytes for now
-  // Real implementation should use Ed25519 signing
-  const signatureBytes = new Uint8Array(64);
-  globalThis.crypto.getRandomValues(signatureBytes);
-
-  return {
-    publicKey: {
-      key: publicKey.toBase64(),
-      signature: btoa(String.fromCharCode(...signatureBytes)),
-    },
-    privateKey: privateKey.toBase64(),
-  };
-}
-
-export async function generateOneTimePreKeys(count: number): Promise<KeyPair[]> {
-  const keys: KeyPair[] = [];
-
-  for (let i = 0; i < count; i++) {
-    const privateKey = MatrixCrypto.Curve25519SecretKey.new();
-
-    // Use a deterministic approach for public key
-    const publicKeyBytes = privateKey.toUint8Array();
-    const publicKey = new MatrixCrypto.Curve25519PublicKey(
-      btoa(String.fromCharCode(...publicKeyBytes.slice(0, 32)))
-    );
-
+  const keys: OneTimeKey[] = [];
+  for (const [keyId, key] of oneTimeKeys.curve25519) {
     keys.push({
-      publicKey: {
-        key: publicKey.toBase64(),
-      },
-      privateKey: privateKey.toBase64(),
+      id: keyId,
+      key: key.toBase64(),
     });
   }
 
   return keys;
 }
 
-export async function createOutboundSession(
-  localIdentityKeys: IdentityKeys,
-  remotePreKeyBundle: PreKeyBundle
-): Promise<Session> {
-  const _machine = getOlmMachine();
+export async function markKeysAsPublished(): Promise<void> {
+  const machine = getOlmMachine();
+  await machine.markKeysAsPublished();
+}
 
-  // In a proper Matrix implementation, sessions are created through
-  // the OlmMachine's internal mechanisms, not manual session creation
-  // This is a simplified approach for compatibility
+export async function updateTrackedUsers(userIds: string[]): Promise<void> {
+  const machine = getOlmMachine();
+  const matrixUserIds = userIds.map(id => new MatrixCrypto.UserId(id));
+  await machine.updateTrackedUsers(matrixUserIds);
+}
 
-  // Create deterministic session ID based on device IDs
-  // This ensures both users use the same session for bidirectional communication
-  if (!currentDeviceId) {
-    throw new Error('Device not initialized');
+export async function getMissingSessions(userId: string): Promise<string[]> {
+  const machine = getOlmMachine();
+  const matrixUserId = new MatrixCrypto.UserId(userId);
+  const missingDevices = await machine.getMissingSessions([matrixUserId]);
+
+  const deviceIds: string[] = [];
+  for (const [_, devices] of missingDevices) {
+    for (const deviceId of devices) {
+      deviceIds.push(deviceId.toString());
+    }
   }
-  const deviceIds = [currentDeviceId, remotePreKeyBundle.deviceId].sort();
-  const sessionId = `session_${deviceIds[0]}_${deviceIds[1]}`;
 
-  // Create deterministic session state based on both users' keys in sorted order
-  // This ensures both users derive the same session state regardless of who initiates
-  // Combine all identity keys from both users and sort them for deterministic order
-  const allIdentityKeys = [
-    localIdentityKeys.curve25519.key,
-    localIdentityKeys.ed25519.key,
-    remotePreKeyBundle.identityKey,
-    remotePreKeyBundle.signedPreKey,
-  ];
+  return deviceIds;
+}
 
-  // Sort all keys to ensure deterministic order regardless of who initiates
-  const sortedKeys = allIdentityKeys.sort();
+export async function createOutboundSessions(
+  userId: string,
+  deviceId: string,
+  identityKey: string,
+  oneTimeKey: ClaimedOneTimeKey
+): Promise<void> {
+  const machine = getOlmMachine();
 
-  // Create session state using deterministic key derivation
-  const combinedKeyMaterial = sortedKeys.join('');
+  const matrixUserId = new MatrixCrypto.UserId(userId);
+  const matrixDeviceId = new MatrixCrypto.DeviceId(deviceId);
+  const matrixIdentityKey = new MatrixCrypto.Curve25519PublicKey(identityKey);
+  const matrixOneTimeKey = new MatrixCrypto.Curve25519PublicKey(oneTimeKey.key);
 
-  // Derive session keys from combined material using a hash function
-  // This ensures both users get the same keys regardless of who initiates
-  const encoder = new TextEncoder();
-  const keyMaterial = encoder.encode(combinedKeyMaterial);
+  const oneTimeKeyMap = new Map();
+  oneTimeKeyMap.set(oneTimeKey.id, matrixOneTimeKey);
 
-  // Create multiple derived keys from the same material
-  const rootKey = btoa(String.fromCharCode(...keyMaterial.slice(0, 32)));
-  const chainKey = btoa(String.fromCharCode(...keyMaterial.slice(32, 64)));
-  const headerKey = btoa(String.fromCharCode(...keyMaterial.slice(64, 96)));
-  const nextHeaderKey = btoa(String.fromCharCode(...keyMaterial.slice(96, 128)));
+  const deviceKeys = new Map();
+  deviceKeys.set(matrixDeviceId, matrixIdentityKey);
+
+  const userDeviceKeys = new Map();
+  userDeviceKeys.set(matrixUserId, deviceKeys);
+
+  const oneTimeKeysByUser = new Map();
+  const oneTimeKeysByDevice = new Map();
+  oneTimeKeysByDevice.set(matrixDeviceId, oneTimeKeyMap);
+  oneTimeKeysByUser.set(matrixUserId, oneTimeKeysByDevice);
+
+  await machine.createOutboundSessions(userDeviceKeys, oneTimeKeysByUser);
+}
+
+export async function encryptToDeviceMessage(
+  userId: string,
+  deviceId: string,
+  eventType: string,
+  content: any
+): Promise<EncryptedMessage> {
+  const machine = getOlmMachine();
+
+  const matrixUserId = new MatrixCrypto.UserId(userId);
+  const matrixDeviceId = new MatrixCrypto.DeviceId(deviceId);
+
+  const toDeviceRequests = await machine.encryptToDeviceEvent(
+    matrixUserId,
+    matrixDeviceId,
+    eventType,
+    JSON.stringify(content)
+  );
+
+  if (toDeviceRequests.length === 0) {
+    throw new Error('No encrypted message generated');
+  }
+
+  const request = toDeviceRequests[0];
+  const encryptedContent = request.body;
+
+  const messageType = encryptedContent.ciphertext ? MessageType.Message : MessageType.PreKey;
 
   return {
-    sessionId,
-    remoteUserId: remotePreKeyBundle.userId,
-    remoteDeviceId: remotePreKeyBundle.deviceId,
-    state: {
-      rootKey,
-      chainKey,
-      nextHeaderKey,
-      headerKey,
-      messageKeys: {},
-      sendingChain: { chainKey: rootKey, messageNumber: 0 },
-      receivingChains: [],
-      previousCounter: 0,
-    },
+    type: messageType,
+    body: JSON.stringify(encryptedContent),
+    sessionId: `${currentUserId}:${currentDeviceId}-${userId}:${deviceId}`,
+  };
+}
+
+export async function decryptToDeviceMessage(
+  senderId: string,
+  senderDeviceId: string,
+  encryptedMessage: EncryptedMessage
+): Promise<PlaintextMessage> {
+  const machine = getOlmMachine();
+
+  const matrixSenderId = new MatrixCrypto.UserId(senderId);
+  const matrixSenderDeviceId = new MatrixCrypto.DeviceId(senderDeviceId);
+
+  let messageBody: any;
+  try {
+    messageBody = JSON.parse(encryptedMessage.body);
+  } catch (error) {
+    throw new Error('Invalid encrypted message format');
+  }
+
+  const decryptedEvent = await machine.decryptToDeviceEvent(
+    matrixSenderId,
+    matrixSenderDeviceId,
+    messageBody
+  );
+
+  let content: any;
+  try {
+    content = JSON.parse(decryptedEvent.cleartext);
+  } catch (error) {
+    throw new Error('Invalid decrypted content format');
+  }
+
+  return {
+    content: content.content || content.body || content,
+    timestamp: content.timestamp || Date.now(),
+    messageId: content.messageId || crypto.randomUUID(),
   };
 }
 
@@ -197,97 +234,66 @@ export async function encryptMessage(
   session: Session,
   message: PlaintextMessage
 ): Promise<EncryptedMessage> {
-  const _machine = getOlmMachine();
-
-  // In a proper Matrix implementation, encryption would be done through:
-  // machine.encryptRoomEvent(roomId, eventType, content)
-  // For now, we implement a secure AES-GCM encryption
-
-  const content = JSON.stringify({
-    content: message.content,
-    timestamp: message.timestamp,
-    messageId: message.messageId,
-  });
-
-  try {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(content);
-
-    // Derive a proper encryption key from session state
-    const keyMaterial = encoder.encode(session.state.chainKey + session.state.rootKey);
-    const keyHash = await globalThis.crypto.subtle.digest('SHA-256', keyMaterial);
-
-    const key = await globalThis.crypto.subtle.importKey(
-      'raw',
-      keyHash.slice(0, 32), // Use first 32 bytes for AES-256
-      { name: 'AES-GCM' },
-      false,
-      ['encrypt']
-    );
-
-    const iv = globalThis.crypto.getRandomValues(new Uint8Array(12));
-    const encrypted = await globalThis.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
-
-    // Combine IV and encrypted data
-    const combined = new Uint8Array(iv.length + encrypted.byteLength);
-    combined.set(iv);
-    combined.set(new Uint8Array(encrypted), iv.length);
-
-    return {
-      type: MessageType.Message,
-      body: btoa(String.fromCharCode(...combined)),
-      sessionId: session.sessionId,
-    };
-  } catch (error) {
-    console.error('Encryption failed:', error);
-    throw error;
-  }
+  return encryptToDeviceMessage(
+    session.remoteUserId,
+    session.remoteDeviceId,
+    'm.room.message',
+    {
+      content: message.content,
+      timestamp: message.timestamp,
+      messageId: message.messageId,
+    }
+  );
 }
 
 export async function decryptMessage(
   session: Session,
   encryptedMessage: EncryptedMessage
 ): Promise<PlaintextMessage> {
-  try {
-    const _machine = getOlmMachine();
+  return decryptToDeviceMessage(
+    session.remoteUserId,
+    session.remoteDeviceId,
+    encryptedMessage
+  );
+}
 
-    // Decode the combined IV + encrypted data
-    const decoded = atob(encryptedMessage.body);
-    const combined = new Uint8Array(decoded.split('').map((char) => char.charCodeAt(0)));
-
-    // Extract IV and encrypted data
-    const iv = combined.slice(0, 12);
-    const encryptedData = combined.slice(12);
-
-    // Derive the same encryption key from session state
-    const encoder = new TextEncoder();
-    const keyMaterial = encoder.encode(session.state.chainKey + session.state.rootKey);
-    const keyHash = await globalThis.crypto.subtle.digest('SHA-256', keyMaterial);
-
-    const key = await globalThis.crypto.subtle.importKey(
-      'raw',
-      keyHash.slice(0, 32),
-      { name: 'AES-GCM' },
-      false,
-      ['decrypt']
-    );
-
-    const decrypted = await globalThis.crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      encryptedData
-    );
-
-    const content = new TextDecoder().decode(decrypted);
-    const parsed = JSON.parse(content);
-
-    return {
-      content: parsed.content,
-      timestamp: parsed.timestamp,
-      messageId: parsed.messageId,
-    };
-  } catch (error) {
-    console.error('Failed to decrypt message:', error);
-    throw error;
+export async function createOutboundSession(
+  localIdentityKeys: IdentityKeys,
+  remotePreKeyBundle: PreKeyBundle
+): Promise<Session> {
+  if (!currentDeviceId || !currentUserId) {
+    throw new Error('Device not initialized');
   }
+
+  const sessionId = `${currentUserId}:${currentDeviceId}-${remotePreKeyBundle.userId}:${remotePreKeyBundle.deviceId}`;
+
+  return {
+    sessionId,
+    remoteUserId: remotePreKeyBundle.userId,
+    remoteDeviceId: remotePreKeyBundle.deviceId,
+    state: {
+      rootKey: '',
+      chainKey: '',
+      nextHeaderKey: '',
+      headerKey: '',
+      messageKeys: {},
+      sendingChain: { chainKey: '', messageNumber: 0 },
+      receivingChains: [],
+      previousCounter: 0,
+    },
+  };
+}
+
+export async function generateSignedPreKey(_ed25519Key: KeyPair): Promise<KeyPair> {
+  throw new Error('generateSignedPreKey is deprecated - use generateOneTimeKeys instead');
+}
+
+export async function generateOneTimePreKeys(count: number): Promise<KeyPair[]> {
+  const oneTimeKeys = await generateOneTimeKeys(count);
+  return oneTimeKeys.map(key => ({
+    publicKey: {
+      key: key.key,
+    },
+    privateKey: '',
+  }));
 }

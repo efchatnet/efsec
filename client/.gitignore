@@ -1,8 +1,0 @@
-node_modules/
-*.log
-.env
-.env.local
-coverage/
-.DS_Store
-*.swp
-*.swo

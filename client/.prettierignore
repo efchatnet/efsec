@@ -1,9 +1,0 @@
-# Generated WASM files (created by wasm-pack)
-src/wasm/efsec_wasm.d.ts
-src/wasm/efsec_wasm_bg.wasm.d.ts
-src/wasm/efsec_wasm.js
-src/wasm/package.json
-
-# Build output
-dist/
-node_modules/

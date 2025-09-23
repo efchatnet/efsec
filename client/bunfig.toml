@@ -1,8 +1,0 @@
-# Bun configuration for EfSec client
-# Configures GitHub Packages registry for @efchatnet scope
-
-[install.scopes]
-"@efchatnet" = { 
-  token = "$NPM_CONFIG_TOKEN", 
-  url = "https://npm.pkg.github.com/" 
-}

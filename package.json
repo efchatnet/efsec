@@ -1,0 +1,39 @@
+{
+  "name": "@efchatnet/efsec",
+  "version": "1.0.0",
+  "description": "Zero-knowledge E2E encryption for Matrix protocol",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/efchatnet/efsec.git"
+  },
+  "license": "MIT",
+  "files": ["dist", "wasm"],
+  "scripts": {
+    "build": "tsc && cp -r wasm dist/ 2>/dev/null || true",
+    "dev": "tsc --watch",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": ["encryption", "e2e", "matrix", "vodozemac", "zero-knowledge", "crypto"],
+  "dependencies": {
+    "@matrix-org/matrix-sdk-crypto-wasm": "^15.3.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/node": "^20.16.5",
+    "fake-indexeddb": "^6.0.0",
+    "happy-dom": "^15.7.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.0.8"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

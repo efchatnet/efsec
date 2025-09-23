@@ -30,7 +30,7 @@ import {
 
 describe('EfSec Crypto Functions', () => {
   beforeAll(async () => {
-    await initializeWasm();
+    await initializeWasm('@test-user:example.com', 'test-device-1');
   });
 
   describe('Key Generation', () => {
@@ -78,9 +78,9 @@ describe('EfSec Crypto Functions', () => {
       const bobOneTimeKeys = await generateOneTimePreKeys(1);
 
       const preKeyBundle = {
-        identityKey: bobIdentity.curve25519,
-        signedPreKey: bobSignedPreKey.publicKey,
-        oneTimePreKey: bobOneTimeKeys[0].publicKey,
+        identityKey: bobIdentity.curve25519.key,
+        signedPreKey: bobSignedPreKey.publicKey.key,
+        oneTimePreKeys: bobOneTimeKeys,
         deviceId: 'bob-device-1',
         userId: 'bob',
       };
@@ -115,9 +115,9 @@ describe('EfSec Crypto Functions', () => {
       const bobOneTimeKeys = await generateOneTimePreKeys(1);
 
       const preKeyBundle = {
-        identityKey: bobIdentity.curve25519,
-        signedPreKey: bobSignedPreKey.publicKey,
-        oneTimePreKey: bobOneTimeKeys[0].publicKey,
+        identityKey: bobIdentity.curve25519.key,
+        signedPreKey: bobSignedPreKey.publicKey.key,
+        oneTimePreKeys: bobOneTimeKeys,
         deviceId: 'bob-device-1',
         userId: 'bob',
       };
@@ -163,11 +163,14 @@ describe('EfSec Crypto Functions', () => {
 
       const sessionId = 'session-123';
       const sessionState = {
-        ratchetKey: 'test-ratchet-key',
-        chainKey: 'test-chain-key',
         rootKey: 'test-root-key',
-        sendingChain: { key: 'test-sending-key', index: 0 },
-        receivingChains: {},
+        chainKey: 'test-chain-key',
+        nextHeaderKey: 'test-next-header-key',
+        headerKey: 'test-header-key',
+        messageKeys: {},
+        sendingChain: { chainKey: 'test-sending-key', messageNumber: 0 },
+        receivingChains: [],
+        previousCounter: 0,
       };
 
       await keyStore.storeSession(sessionId, sessionState);

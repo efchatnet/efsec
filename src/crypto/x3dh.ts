@@ -157,7 +157,7 @@ export function x3dhSessionToSession(x3dhSession: X3DHSession): Session {
       messageKeys: {},
       sendingChain: {
         chainKey: x3dhSession.sharedSecret,
-        messageNumber: 0
+        messageNumber: 0,
       },
       receivingChains: [],
       previousCounter: 0,

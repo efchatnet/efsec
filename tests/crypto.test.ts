@@ -1,5 +1,5 @@
 /**
- * Copyright (C) 2024 William Theesfeld <william@theesfeld.net>
+ * Copyright (C) 2025 efchat <tj@efchat.net>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

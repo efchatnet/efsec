@@ -1,0 +1,45 @@
+# Source files (only dist is needed)
+src/
+tests/
+
+# Configuration files
+tsconfig.json
+vitest.config.ts
+biome.json
+
+# Development dependencies
+node_modules/
+bun.lock
+package-lock.json
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Build artifacts
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# GitHub
+.github/
+
+# Documentation source
+docs/
+
+# Development files
+*.test.ts
+*.spec.ts

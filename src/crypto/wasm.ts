@@ -28,6 +28,7 @@ import { MessageType } from './types.js';
 
 let isInitialized = false;
 let olmMachine: MatrixCrypto.OlmMachine | null = null;
+let currentDeviceId: string | null = null;
 
 export async function initializeWasm(): Promise<void> {
   if (isInitialized) {
@@ -53,6 +54,7 @@ export async function createOlmMachine(userId: string, deviceId: string): Promis
       new MatrixCrypto.UserId(userId),
       new MatrixCrypto.DeviceId(deviceId)
     );
+    currentDeviceId = deviceId;
   } catch (error) {
     console.error('Failed to create OlmMachine:', error);
     throw error;
@@ -139,7 +141,13 @@ export async function createOutboundSession(
   // the OlmMachine's internal mechanisms, not manual session creation
   // This is a simplified approach for compatibility
 
-  const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2)}`;
+  // Create deterministic session ID based on device IDs
+  // This ensures both users use the same session for bidirectional communication
+  if (!currentDeviceId) {
+    throw new Error('Device not initialized');
+  }
+  const deviceIds = [currentDeviceId, remotePreKeyBundle.deviceId].sort();
+  const sessionId = `session_${deviceIds[0]}_${deviceIds[1]}`;
 
   return {
     sessionId,

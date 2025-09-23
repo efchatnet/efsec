@@ -40,8 +40,16 @@ let currentDeviceId: string | null = null;
 
 export async function initialize(userId: string, deviceId: string): Promise<void> {
   await initializeWasm();
-  await createOlmMachine(userId, deviceId);
-  currentUserId = userId;
+
+  // Ensure userId is in proper Matrix format (@localpart:domain)
+  let matrixUserId = userId;
+  if (!userId.startsWith('@') || !userId.includes(':')) {
+    // Convert simple userId to Matrix format
+    matrixUserId = `@${userId}:efchat.net`;
+  }
+
+  await createOlmMachine(matrixUserId, deviceId);
+  currentUserId = matrixUserId;
   currentDeviceId = deviceId;
 }
 

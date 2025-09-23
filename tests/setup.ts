@@ -26,10 +26,35 @@ Object.defineProperty(globalThis, 'crypto', {
       return array;
     },
     subtle: {
-      importKey: async () => ({ type: 'secret', algorithm: { name: 'HMAC', hash: 'SHA-256' } }),
+      digest: async (_algorithm: string, data: ArrayBuffer) => {
+        // Simple mock digest that returns deterministic hash
+        const view = new Uint8Array(data);
+        const hash = new Uint8Array(32);
+        for (let i = 0; i < 32; i++) {
+          hash[i] = (view[i % view.length] + i) % 256;
+        }
+        return hash.buffer;
+      },
+      importKey: async () => ({ type: 'secret', algorithm: { name: 'AES-GCM' } }),
       sign: async () => new ArrayBuffer(32),
-      encrypt: async () => new ArrayBuffer(32),
-      decrypt: async () => new ArrayBuffer(32),
+      encrypt: async (_algorithm: unknown, _key: unknown, data: ArrayBuffer) => {
+        // Mock encryption that returns modified data
+        const input = new Uint8Array(data);
+        const output = new Uint8Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+          output[i] = input[i] ^ 0xaa; // Simple XOR encryption
+        }
+        return output.buffer;
+      },
+      decrypt: async (_algorithm: unknown, _key: unknown, data: ArrayBuffer) => {
+        // Mock decryption that reverses the XOR
+        const input = new Uint8Array(data);
+        const output = new Uint8Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+          output[i] = input[i] ^ 0xaa; // Reverse XOR
+        }
+        return output.buffer;
+      },
     },
   },
 });

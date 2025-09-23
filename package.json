@@ -1,6 +1,6 @@
 {
   "name": "efsec",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Zero-knowledge E2E encryption for Matrix protocol",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

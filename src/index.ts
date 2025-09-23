@@ -45,6 +45,14 @@ export {
 export {
   createOutboundSession,
   createInboundSession,
+  generatePreKeyBundle,
+  performX3DH,
+  createPreKeyBundleFromKeys,
+  x3dhSessionToSession,
+  initializeX3DHSession,
+  verifyPreKeyBundle,
+  type X3DHBundle,
+  type X3DHSession,
 } from './crypto/x3dh.js';
 
 export {

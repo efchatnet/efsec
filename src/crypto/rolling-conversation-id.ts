@@ -17,13 +17,12 @@
 
 import type { Session } from './types.js';
 
-export function getRollingConversationId(session: Session): string {
-  const userA = Number.parseInt(session.remoteUserId);
-  const currentUserId = extractCurrentUserIdFromSession(session.sessionId);
+export function getRollingConversationId(session: Session, currentUserId: number): string {
+  const remoteUserId = Number.parseInt(session.remoteUserId);
 
   // Normalize user pair: smaller ID first for consistency
-  const normalizedUserA = Math.min(currentUserId, userA);
-  const normalizedUserB = Math.max(currentUserId, userA);
+  const normalizedUserA = Math.min(currentUserId, remoteUserId);
+  const normalizedUserB = Math.max(currentUserId, remoteUserId);
   const userPair = `${normalizedUserA}:${normalizedUserB}`;
 
   // Get current chain key hash from session state
@@ -35,15 +34,6 @@ export function getRollingConversationId(session: Session): string {
   return `dm_${rollingId}`;
 }
 
-function extractCurrentUserIdFromSession(sessionId: string): number {
-  // Session ID format: @user-deviceId:efchat.net:deviceId-userId:remoteDeviceId
-  // Extract the userId part before the colon
-  const match = sessionId.match(/@user-[^:]+:efchat\.net:[^-]+-(\d+):/);
-  if (!match) {
-    throw new Error(`Invalid session ID format: ${sessionId}`);
-  }
-  return Number.parseInt(match[1]);
-}
 
 function hashChainKey(chainKey: string): string {
   // Simple hash of chain key - takes first 8 chars for rolling ID derivation
@@ -66,13 +56,12 @@ function hashString(input: string): string {
   return Math.abs(hash).toString(16);
 }
 
-export function getStableConversationSeed(session: Session): string {
-  const userA = Number.parseInt(session.remoteUserId);
-  const currentUserId = extractCurrentUserIdFromSession(session.sessionId);
+export function getStableConversationSeed(session: Session, currentUserId: number): string {
+  const remoteUserId = Number.parseInt(session.remoteUserId);
 
   // Create stable seed for conversation mapping (doesn't change)
-  const normalizedUserA = Math.min(currentUserId, userA);
-  const normalizedUserB = Math.max(currentUserId, userA);
+  const normalizedUserA = Math.min(currentUserId, remoteUserId);
+  const normalizedUserB = Math.max(currentUserId, remoteUserId);
 
   return hashString(`${normalizedUserA}:${normalizedUserB}`);
 }

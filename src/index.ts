@@ -60,6 +60,11 @@ export {
   decryptMessage,
 } from './crypto/double-ratchet.js';
 
+export {
+  getRollingConversationId,
+  getStableConversationSeed,
+} from './crypto/rolling-conversation-id.js';
+
 export { KeyStore } from './storage/indexed-db.js';
 
 export { initialize as initializeWasm } from './crypto/vodozemac.js';

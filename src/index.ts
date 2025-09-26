@@ -68,3 +68,18 @@ export {
 export { KeyStore } from './storage/indexed-db.js';
 
 export { initialize as initializeWasm } from './crypto/vodozemac.js';
+
+export {
+  createOutboundGroupSession,
+  createInboundGroupSessionFromKey,
+  createInboundGroupSessionFromExport,
+  unpickleOutboundGroupSession,
+  unpickleInboundGroupSession,
+  generatePickleKey,
+  base64Encode,
+  base64Decode,
+  type OutboundGroupSession,
+  type InboundGroupSession,
+  type GroupSessionDecryptionResult,
+  type MegolmSessionData,
+} from './crypto/megolm.js';

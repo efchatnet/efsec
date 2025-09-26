@@ -55,7 +55,7 @@ class OutboundGroupSessionWrapper implements OutboundGroupSession {
   private _messageIndex: number;
   private _creationTime: bigint;
 
-  constructor(sessionId: string, sessionKey: string, messageIndex: number = 0) {
+  constructor(sessionId: string, sessionKey: string, messageIndex = 0) {
     this._sessionId = sessionId;
     this._sessionKey = sessionKey;
     this._messageIndex = messageIndex;
@@ -87,13 +87,15 @@ class OutboundGroupSessionWrapper implements OutboundGroupSession {
     });
   }
 
-  pickle(key: Uint8Array): string {
-    return btoa(JSON.stringify({
-      sessionId: this._sessionId,
-      sessionKey: this._sessionKey,
-      messageIndex: this._messageIndex,
-      creationTime: this._creationTime.toString(),
-    }));
+  pickle(_key: Uint8Array): string {
+    return btoa(
+      JSON.stringify({
+        sessionId: this._sessionId,
+        sessionKey: this._sessionKey,
+        messageIndex: this._messageIndex,
+        creationTime: this._creationTime.toString(),
+      })
+    );
   }
 
   creationTime(): bigint {
@@ -105,7 +107,7 @@ class InboundGroupSessionWrapper implements InboundGroupSession {
   private _sessionId: string;
   private _firstKnownIndex: number;
 
-  constructor(sessionId: string, firstKnownIndex: number = 0) {
+  constructor(sessionId: string, firstKnownIndex = 0) {
     this._sessionId = sessionId;
     this._firstKnownIndex = firstKnownIndex;
   }
@@ -132,11 +134,13 @@ class InboundGroupSessionWrapper implements InboundGroupSession {
     }
   }
 
-  pickle(key: Uint8Array): string {
-    return btoa(JSON.stringify({
-      sessionId: this._sessionId,
-      firstKnownIndex: this._firstKnownIndex,
-    }));
+  pickle(_key: Uint8Array): string {
+    return btoa(
+      JSON.stringify({
+        sessionId: this._sessionId,
+        firstKnownIndex: this._firstKnownIndex,
+      })
+    );
   }
 
   export(messageIndex?: number): string {
@@ -156,7 +160,7 @@ export function createOutboundGroupSession(): OutboundGroupSession {
   return new OutboundGroupSessionWrapper(sessionId, sessionKey);
 }
 
-export function createInboundGroupSessionFromKey(sessionKey: string): InboundGroupSession {
+export function createInboundGroupSessionFromKey(_sessionKey: string): InboundGroupSession {
   const sessionId = generateSessionId();
   return new InboundGroupSessionWrapper(sessionId);
 }
@@ -175,15 +179,11 @@ export function createInboundGroupSessionFromExport(exportedSession: string): In
 
 export function unpickleOutboundGroupSession(
   pickled: string,
-  key: Uint8Array,
+  _key: Uint8Array
 ): OutboundGroupSession {
   try {
     const data = JSON.parse(atob(pickled));
-    return new OutboundGroupSessionWrapper(
-      data.sessionId,
-      data.sessionKey,
-      data.messageIndex
-    );
+    return new OutboundGroupSessionWrapper(data.sessionId, data.sessionKey, data.messageIndex);
   } catch {
     throw new Error('Failed to unpickle outbound group session');
   }
@@ -191,14 +191,11 @@ export function unpickleOutboundGroupSession(
 
 export function unpickleInboundGroupSession(
   pickled: string,
-  key: Uint8Array,
+  _key: Uint8Array
 ): InboundGroupSession {
   try {
     const data = JSON.parse(atob(pickled));
-    return new InboundGroupSessionWrapper(
-      data.sessionId,
-      data.firstKnownIndex
-    );
+    return new InboundGroupSessionWrapper(data.sessionId, data.firstKnownIndex);
   } catch {
     throw new Error('Failed to unpickle inbound group session');
   }
@@ -207,7 +204,7 @@ export function unpickleInboundGroupSession(
 function generateSessionId(): string {
   const array = new Uint8Array(16);
   crypto.getRandomValues(array);
-  return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  return Array.from(array, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
 function generateSessionKey(): string {
@@ -225,5 +222,9 @@ export function base64Encode(data: Uint8Array): string {
 }
 
 export function base64Decode(data: string): Uint8Array {
-  return new Uint8Array(atob(data).split('').map(c => c.charCodeAt(0)));
+  return new Uint8Array(
+    atob(data)
+      .split('')
+      .map((c) => c.charCodeAt(0))
+  );
 }

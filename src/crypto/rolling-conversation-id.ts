@@ -34,7 +34,6 @@ export function getRollingConversationId(session: Session, currentUserId: number
   return `dm_${rollingId}`;
 }
 
-
 function hashChainKey(chainKey: string): string {
   // Simple hash of chain key - takes first 8 chars for rolling ID derivation
   let hash = 0;

@@ -419,20 +419,6 @@ export async function createOutboundSession(
   };
 }
 
-export async function generateSignedPreKey(_ed25519Key: KeyPair): Promise<KeyPair> {
-  // Generate a placeholder signed prekey for compatibility
-  const privateKey = crypto.getRandomValues(new Uint8Array(32));
-  const publicKey = crypto.getRandomValues(new Uint8Array(32));
-  const signature = crypto.getRandomValues(new Uint8Array(64));
-
-  return {
-    publicKey: {
-      key: btoa(String.fromCharCode(...publicKey)),
-      signature: btoa(String.fromCharCode(...signature)),
-    },
-    privateKey: btoa(String.fromCharCode(...privateKey)),
-  };
-}
 
 export async function generateOneTimePreKeys(count: number): Promise<KeyPair[]> {
   const oneTimeKeys = await generateOneTimeKeys(count);

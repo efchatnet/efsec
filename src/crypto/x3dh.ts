@@ -43,7 +43,6 @@ export async function createInboundSession(
     userId: 'remote_user',
     deviceId: 'remote_device',
     identityKey: remoteIdentityKey,
-    signedPreKey: (prekeyMessage.signedPreKey as string) || remoteIdentityKey,
     oneTimePreKeys: [],
   };
 
@@ -54,21 +53,18 @@ export async function generatePreKeyBundle(
   userId: string,
   deviceId: string,
   identityKeys: IdentityKeys,
-  signedPreKey: KeyPair,
   oneTimePreKeys: KeyPair[]
 ): Promise<PreKeyBundle> {
   return {
     userId,
     deviceId,
     identityKey: identityKeys.curve25519.key,
-    signedPreKey: signedPreKey.publicKey.key,
     oneTimePreKeys,
   };
 }
 
 export interface X3DHBundle {
   identityKey: string;
-  signedPreKey: string;
   signature: string;
   oneTimeKey?: string;
   userId: string;
@@ -92,14 +88,11 @@ export async function performX3DH(
     // X3DH key agreement (simplified implementation)
     // In a real implementation, this would use proper curve25519 operations
 
-    // DH1 = DH(IK_A, SPK_B)
-    const dh1 = await performDH(localIdentityKeys.curve25519.key, remoteBundle.signedPreKey);
+    // DH1 = DH(IK_A, IK_B) - Matrix Olm uses identity key instead of signed prekey
+    const dh1 = await performDH(localIdentityKeys.curve25519.key, remoteBundle.identityKey);
 
     // DH2 = DH(EK_A, IK_B)
     const dh2 = await performDH(localEphemeralKey.privateKey, remoteBundle.identityKey);
-
-    // DH3 = DH(EK_A, SPK_B)
-    const dh3 = await performDH(localEphemeralKey.privateKey, remoteBundle.signedPreKey);
 
     // DH4 = DH(EK_A, OPK_B) if one-time key exists
     let dh4 = '';
@@ -107,8 +100,8 @@ export async function performX3DH(
       dh4 = await performDH(localEphemeralKey.privateKey, remoteBundle.oneTimeKey);
     }
 
-    // SK = KDF(DH1 || DH2 || DH3 || DH4)
-    const keyMaterial = dh1 + dh2 + dh3 + dh4;
+    // SK = KDF(DH1 || DH2 || DH4) - Matrix Olm key derivation
+    const keyMaterial = dh1 + dh2 + dh4;
     const sharedSecret = await deriveSharedSecret(keyMaterial);
 
     // Associated data for AEAD
@@ -130,14 +123,12 @@ export async function performX3DH(
 
 export function createPreKeyBundleFromKeys(
   identityKeys: IdentityKeys,
-  signedPreKey: KeyPair,
   oneTimeKey: KeyPair | null,
   userId: string,
   deviceId: string
 ): PreKeyBundle {
   return {
     identityKey: identityKeys.curve25519.key,
-    signedPreKey: signedPreKey.publicKey.key,
     oneTimePreKeys: oneTimeKey ? [oneTimeKey] : [],
     userId,
     deviceId,
@@ -224,7 +215,7 @@ async function deriveSharedSecret(keyMaterial: string): Promise<string> {
 
 export async function verifyPreKeyBundle(bundle: X3DHBundle): Promise<boolean> {
   try {
-    // Verify signature of signed prekey
+    // Verify identity key signature (Matrix Olm verification)
     // In production, implement proper Ed25519 signature verification
     return !!(bundle.signature && bundle.signature.length > 0);
   } catch (error) {

@@ -24,7 +24,6 @@ import {
   encryptMessage,
   generateIdentityKeyPair,
   generateOneTimePreKeys,
-  generateSignedPreKey,
   initializeWasm,
 } from '../src/index.js';
 
@@ -44,15 +43,6 @@ describe('EfSec Crypto Functions', () => {
       expect(identityKeys.ed25519.key).toBeTypeOf('string');
     });
 
-    it('should generate signed prekey', async () => {
-      const identityKeys = await generateIdentityKeyPair();
-      const signedPreKey = await generateSignedPreKey(identityKeys.ed25519);
-
-      expect(signedPreKey).toBeDefined();
-      expect(signedPreKey.publicKey.key).toBeTypeOf('string');
-      expect(signedPreKey.publicKey.signature).toBeTypeOf('string');
-      expect(signedPreKey.privateKey).toBeTypeOf('string');
-    });
 
     it('should generate one-time prekeys', async () => {
       const oneTimeKeys = await generateOneTimePreKeys(10);
@@ -74,12 +64,10 @@ describe('EfSec Crypto Functions', () => {
     it('should create outbound session', async () => {
       const aliceIdentity = await generateIdentityKeyPair();
       const bobIdentity = await generateIdentityKeyPair();
-      const bobSignedPreKey = await generateSignedPreKey(bobIdentity.ed25519);
       const bobOneTimeKeys = await generateOneTimePreKeys(1);
 
       const preKeyBundle = {
         identityKey: bobIdentity.curve25519.key,
-        signedPreKey: bobSignedPreKey.publicKey.key,
         oneTimePreKeys: bobOneTimeKeys,
         deviceId: 'bob-device-1',
         userId: 'bob',
@@ -111,12 +99,10 @@ describe('EfSec Crypto Functions', () => {
     it('should encrypt and decrypt messages', async () => {
       const aliceIdentity = await generateIdentityKeyPair();
       const bobIdentity = await generateIdentityKeyPair();
-      const bobSignedPreKey = await generateSignedPreKey(bobIdentity.ed25519);
       const bobOneTimeKeys = await generateOneTimePreKeys(1);
 
       const preKeyBundle = {
         identityKey: bobIdentity.curve25519.key,
-        signedPreKey: bobSignedPreKey.publicKey.key,
         oneTimePreKeys: bobOneTimeKeys,
         deviceId: 'bob-device-1',
         userId: 'bob',
@@ -187,11 +173,9 @@ describe('EfSec Crypto Functions', () => {
 
       const deviceId = 'test-device-1';
       const identityKeys = await generateIdentityKeyPair();
-      const signedPreKey = await generateSignedPreKey(identityKeys.ed25519);
       const oneTimePreKeys = await generateOneTimePreKeys(5);
 
       await keyStore.storeIdentityKeys(deviceId, identityKeys);
-      await keyStore.storeSignedPreKey(deviceId, signedPreKey);
       await keyStore.storeOneTimePreKeys(deviceId, oneTimePreKeys);
 
       const exported = await keyStore.exportData(deviceId);

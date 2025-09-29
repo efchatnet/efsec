@@ -38,7 +38,6 @@ export {
 
 export {
   generateIdentityKeyPair,
-  generateSignedPreKey,
   generateOneTimePreKeys,
 } from './crypto/keys.js';
 

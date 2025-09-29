@@ -80,32 +80,7 @@ export class KeyStore {
     });
   }
 
-  async storeSignedPreKey(deviceId: string, signedPreKey: KeyPair): Promise<void> {
-    await this.ensureInitialized();
 
-    return this.performTransaction<void>('readwrite', (store) => {
-      store.put({
-        id: 'signed-prekey',
-        deviceId,
-        signedPreKey,
-        updatedAt: Date.now(),
-      });
-      return undefined;
-    });
-  }
-
-  async getSignedPreKey(deviceId: string): Promise<KeyPair | null> {
-    await this.ensureInitialized();
-
-    return this.performTransaction('readonly', (store) => {
-      return store.get('signed-prekey');
-    }).then((result) => {
-      if (result && result.deviceId === deviceId) {
-        return result.signedPreKey;
-      }
-      return null;
-    });
-  }
 
   async storeOneTimePreKeys(deviceId: string, oneTimePreKeys: KeyPair[]): Promise<void> {
     await this.ensureInitialized();
@@ -194,17 +169,15 @@ export class KeyStore {
 
   async exportData(deviceId: string): Promise<KeyStoreData | null> {
     const identityKeys = await this.getIdentityKeys(deviceId);
-    const signedPreKey = await this.getSignedPreKey(deviceId);
     const oneTimePreKeys = await this.getOneTimePreKeys(deviceId);
     const sessions = await this.getAllSessions();
 
-    if (!identityKeys || !signedPreKey) {
+    if (!identityKeys) {
       return null;
     }
 
     return {
       identityKeys,
-      signedPreKey,
       oneTimePreKeys,
       sessions,
       deviceId,
@@ -213,7 +186,6 @@ export class KeyStore {
 
   async importData(data: KeyStoreData): Promise<void> {
     await this.storeIdentityKeys(data.deviceId, data.identityKeys);
-    await this.storeSignedPreKey(data.deviceId, data.signedPreKey);
     await this.storeOneTimePreKeys(data.deviceId, data.oneTimePreKeys);
 
     for (const [sessionId, sessionState] of Object.entries(data.sessions)) {

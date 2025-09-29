@@ -32,7 +32,6 @@ export interface IdentityKeys {
 
 export interface PreKeyBundle {
   readonly identityKey: string;
-  readonly signedPreKey: string;
   readonly oneTimePreKeys: KeyPair[];
   readonly deviceId: string;
   readonly userId: string;
@@ -42,7 +41,6 @@ export interface DeviceKeys {
   readonly userId: string;
   readonly deviceId: string;
   readonly identityKeys: IdentityKeys;
-  readonly signedPreKey: PublicKey;
   readonly oneTimePreKeys: PublicKey[];
 }
 
@@ -88,7 +86,6 @@ export enum MessageType {
 
 export interface KeyStoreData {
   readonly identityKeys: IdentityKeys;
-  readonly signedPreKey: KeyPair;
   readonly oneTimePreKeys: KeyPair[];
   readonly sessions: Record<string, SessionState>;
   readonly deviceId: string;

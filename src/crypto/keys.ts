@@ -31,17 +31,6 @@ export async function generateIdentityKeyPair(): Promise<IdentityKeys> {
   }
 }
 
-export async function generateSignedPreKey(identityKey: KeyPair): Promise<KeyPair> {
-  try {
-    if (!vodozemac.isInitialized()) {
-      throw new KeyError('Vodozemac not initialized - call initialize() first');
-    }
-
-    return await vodozemac.createSignedPreKey(identityKey);
-  } catch (error) {
-    throw new KeyError(`Failed to generate signed prekey: ${error}`);
-  }
-}
 
 export async function generateOneTimePreKeys(count = 50): Promise<KeyPair[]> {
   if (count <= 0 || count > 100) {

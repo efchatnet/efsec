@@ -22,7 +22,6 @@ import {
   encryptMessage,
   generateIdentityKeyPair,
   generateOneTimePreKeys,
-  generateSignedPreKey,
   initializeWasm,
 } from './wasm.js';
 
@@ -60,9 +59,6 @@ export async function createIdentityKeys(): Promise<IdentityKeys> {
   return await generateIdentityKeyPair();
 }
 
-export async function createSignedPreKey(identityKey: KeyPair): Promise<KeyPair> {
-  return await generateSignedPreKey(identityKey);
-}
 
 export async function createOneTimePreKeys(count: number): Promise<KeyPair[]> {
   return await generateOneTimePreKeys(count);

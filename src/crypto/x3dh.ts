@@ -32,7 +32,7 @@ export async function createOutboundSession(
 export async function createInboundSession(
   localIdentityKeys: IdentityKeys,
   remoteIdentityKey: string,
-  prekeyMessage: Record<string, unknown>
+  _prekeyMessage: Record<string, unknown>
 ): Promise<Session> {
   if (!vodozemac.isInitialized()) {
     throw new Error('Vodozemac not initialized - call initialize() first');

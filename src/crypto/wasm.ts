@@ -419,7 +419,6 @@ export async function createOutboundSession(
   };
 }
 
-
 export async function generateOneTimePreKeys(count: number): Promise<KeyPair[]> {
   const oneTimeKeys = await generateOneTimeKeys(count);
   return oneTimeKeys.map((key) => ({

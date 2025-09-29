@@ -43,7 +43,6 @@ describe('EfSec Crypto Functions', () => {
       expect(identityKeys.ed25519.key).toBeTypeOf('string');
     });
 
-
     it('should generate one-time prekeys', async () => {
       const oneTimeKeys = await generateOneTimePreKeys(10);
 

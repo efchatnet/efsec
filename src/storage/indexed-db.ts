@@ -80,8 +80,6 @@ export class KeyStore {
     });
   }
 
-
-
   async storeOneTimePreKeys(deviceId: string, oneTimePreKeys: KeyPair[]): Promise<void> {
     await this.ensureInitialized();
 

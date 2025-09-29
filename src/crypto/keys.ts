@@ -31,7 +31,6 @@ export async function generateIdentityKeyPair(): Promise<IdentityKeys> {
   }
 }
 
-
 export async function generateOneTimePreKeys(count = 50): Promise<KeyPair[]> {
   if (count <= 0 || count > 100) {
     throw new KeyError('Invalid one-time key count (must be 1-100)');

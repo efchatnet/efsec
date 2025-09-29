@@ -59,7 +59,6 @@ export async function createIdentityKeys(): Promise<IdentityKeys> {
   return await generateIdentityKeyPair();
 }
 
-
 export async function createOneTimePreKeys(count: number): Promise<KeyPair[]> {
   return await generateOneTimePreKeys(count);
 }

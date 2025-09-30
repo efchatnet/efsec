@@ -1,6 +1,6 @@
 {
   "name": "efsec",
-  "version": "2.3.0",
+  "version": "3.0.0",
   "description": "Matrix protocol E2E encryption library with dual API approach",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

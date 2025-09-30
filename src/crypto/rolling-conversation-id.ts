@@ -18,7 +18,29 @@
 import type { Session } from './types.js';
 
 export function getRollingConversationId(session: Session, currentUserId: number): string {
+  // Input validation
+  if (!session || typeof session !== 'object') {
+    throw new Error('Invalid session: session must be a valid object');
+  }
+  
+  if (!session.remoteUserId || typeof session.remoteUserId !== 'string') {
+    throw new Error('Invalid session: remoteUserId must be a non-empty string');
+  }
+  
+  if (!Number.isInteger(currentUserId) || currentUserId < 0) {
+    throw new Error('Invalid currentUserId: must be a non-negative integer');
+  }
+  
+  if (!session.state || !session.state.sendingChain || !session.state.sendingChain.chainKey) {
+    throw new Error('Invalid session: missing required chain key in session state');
+  }
+
   const remoteUserId = Number.parseInt(session.remoteUserId);
+  
+  // Validate parsed remote user ID
+  if (Number.isNaN(remoteUserId) || remoteUserId < 0) {
+    throw new Error('Invalid remoteUserId: must be a valid non-negative integer');
+  }
 
   // Normalize user pair: smaller ID first for consistency
   const normalizedUserA = Math.min(currentUserId, remoteUserId);
@@ -56,7 +78,25 @@ function hashString(input: string): string {
 }
 
 export function getStableConversationSeed(session: Session, currentUserId: number): string {
+  // Input validation
+  if (!session || typeof session !== 'object') {
+    throw new Error('Invalid session: session must be a valid object');
+  }
+  
+  if (!session.remoteUserId || typeof session.remoteUserId !== 'string') {
+    throw new Error('Invalid session: remoteUserId must be a non-empty string');
+  }
+  
+  if (!Number.isInteger(currentUserId) || currentUserId < 0) {
+    throw new Error('Invalid currentUserId: must be a non-negative integer');
+  }
+
   const remoteUserId = Number.parseInt(session.remoteUserId);
+  
+  // Validate parsed remote user ID
+  if (Number.isNaN(remoteUserId) || remoteUserId < 0) {
+    throw new Error('Invalid remoteUserId: must be a valid non-negative integer');
+  }
 
   // Create stable seed for conversation mapping (doesn't change)
   const normalizedUserA = Math.min(currentUserId, remoteUserId);

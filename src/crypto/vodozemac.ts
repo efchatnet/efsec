@@ -24,10 +24,12 @@ import {
   generateOneTimePreKeys,
   initializeWasm,
 } from './wasm.js';
+import { ErrorSanitizer } from './error-sanitizer.js';
 
 import type {
   EncryptedMessage,
   IdentityKeys,
+  IdentityKeyPair,
   KeyPair,
   PlaintextMessage,
   PreKeyBundle,
@@ -57,6 +59,72 @@ export async function createIdentityKeys(): Promise<IdentityKeys> {
     throw new Error('Vodozemac not initialized');
   }
   return await generateIdentityKeyPair();
+}
+
+export async function createCurve25519KeyPair(): Promise<KeyPair> {
+  if (!currentUserId || !currentDeviceId) {
+    throw new Error('Vodozemac not initialized');
+  }
+
+  try {
+    // Import Matrix SDK for proper Curve25519 operations
+    const MatrixCrypto = await import('@matrix-org/matrix-sdk-crypto-wasm');
+
+    // Generate proper Curve25519 key pair using Matrix SDK
+    const secretKey = MatrixCrypto.Curve25519SecretKey.new();
+
+    // Extract private key
+    const privateKey = secretKey.toBase64();
+
+    // Get public key using PkDecryption
+    const pkDecryption = MatrixCrypto.PkDecryption.fromKey(secretKey);
+    const publicKey = pkDecryption.publicKey();
+    const publicKeyBase64 = publicKey.toBase64();
+
+    return {
+      publicKey: { key: publicKeyBase64 },
+      privateKey: privateKey,
+    };
+  } catch (error) {
+    ErrorSanitizer.logError(error, 'Curve25519 key pair generation');
+    throw new Error('Failed to generate Curve25519 key pair');
+  }
+}
+
+export async function createEd25519KeyPair(): Promise<KeyPair> {
+  if (!currentUserId || !currentDeviceId) {
+    throw new Error('Vodozemac not initialized');
+  }
+
+  try {
+    // Ed25519 keys are managed by the OlmMachine internally
+    // For standalone Ed25519 key generation, we'll use the Web Crypto API
+    // as Matrix SDK doesn't expose Ed25519SecretKey generation directly
+
+    const keyPair = await crypto.subtle.generateKey(
+      {
+        name: 'Ed25519',
+        namedCurve: 'Ed25519'
+      },
+      true,
+      ['sign', 'verify']
+    );
+
+    // Export the keys
+    const privateKeyBuffer = await crypto.subtle.exportKey('raw', keyPair.privateKey);
+    const publicKeyBuffer = await crypto.subtle.exportKey('raw', keyPair.publicKey);
+
+    const privateKey = btoa(String.fromCharCode(...new Uint8Array(privateKeyBuffer)));
+    const publicKeyBase64 = btoa(String.fromCharCode(...new Uint8Array(publicKeyBuffer)));
+
+    return {
+      publicKey: { key: publicKeyBase64 },
+      privateKey: privateKey,
+    };
+  } catch (error) {
+    ErrorSanitizer.logError(error, 'Ed25519 key pair generation');
+    throw new Error('Failed to generate Ed25519 key pair');
+  }
 }
 
 export async function createOneTimePreKeys(count: number): Promise<KeyPair[]> {

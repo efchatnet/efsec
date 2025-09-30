@@ -19,6 +19,7 @@ export type {
   PublicKey,
   KeyPair,
   IdentityKeys,
+  IdentityKeyPair,
   PreKeyBundle,
   DeviceKeys,
   Session,
@@ -38,7 +39,9 @@ export {
 
 export {
   generateIdentityKeyPair,
+  generateIdentityKeyPairWithPrivateKeys,
   generateOneTimePreKeys,
+  generateImmediateOneTimeKeys,
 } from './crypto/keys.js';
 
 export {

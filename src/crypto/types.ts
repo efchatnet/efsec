@@ -30,6 +30,11 @@ export interface IdentityKeys {
   readonly ed25519: PublicKey;
 }
 
+export interface IdentityKeyPair {
+  readonly curve25519: KeyPair;
+  readonly ed25519: KeyPair;
+}
+
 export interface PreKeyBundle {
   readonly identityKey: string;
   readonly oneTimePreKeys: KeyPair[];

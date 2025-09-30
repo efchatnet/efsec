@@ -260,4 +260,49 @@ export class KeyStore {
       }
     });
   }
+
+  /**
+   * MATRIX COMPLIANCE: Store device ID in IndexedDB instead of localStorage
+   */
+  async storeDeviceId(userId: string, deviceId: string): Promise<void> {
+    await this.ensureInitialized();
+
+    return this.performTransaction<void>('readwrite', (store) => {
+      store.put({
+        id: `device-id-${userId}`,
+        userId,
+        deviceId,
+        updatedAt: Date.now(),
+      });
+      return undefined;
+    });
+  }
+
+  /**
+   * MATRIX COMPLIANCE: Get device ID from IndexedDB
+   */
+  async getDeviceId(userId: string): Promise<string | null> {
+    await this.ensureInitialized();
+
+    return this.performTransaction('readonly', (store) => {
+      return store.get(`device-id-${userId}`);
+    }).then((result) => {
+      if (result && result.userId === userId) {
+        return result.deviceId;
+      }
+      return null;
+    });
+  }
+
+  /**
+   * MATRIX COMPLIANCE: Remove device ID from IndexedDB
+   */
+  async clearDeviceId(userId: string): Promise<void> {
+    await this.ensureInitialized();
+
+    return this.performTransaction<void>('readwrite', (store) => {
+      store.delete(`device-id-${userId}`);
+      return undefined;
+    });
+  }
 }

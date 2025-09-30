@@ -15,7 +15,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-import type { IdentityKeys, KeyPair, KeyStoreData, SessionState } from '../crypto/types.js';
+import type { IdentityKeys, IdentityKeyPair, KeyPair, KeyStoreData, SessionState } from '../crypto/types.js';
 import { KeyError } from '../crypto/types.js';
 
 const DB_NAME = 'efsec-keystore';
@@ -75,6 +75,33 @@ export class KeyStore {
     }).then((result) => {
       if (result && result.deviceId === deviceId) {
         return result.identityKeys;
+      }
+      return null;
+    });
+  }
+
+  async storeIdentityKeyPair(deviceId: string, identityKeyPair: IdentityKeyPair): Promise<void> {
+    await this.ensureInitialized();
+
+    return this.performTransaction<void>('readwrite', (store) => {
+      store.put({
+        id: 'identity-key-pair',
+        deviceId,
+        identityKeyPair,
+        updatedAt: Date.now(),
+      });
+      return undefined;
+    });
+  }
+
+  async getIdentityKeyPair(deviceId: string): Promise<IdentityKeyPair | null> {
+    await this.ensureInitialized();
+
+    return this.performTransaction('readonly', (store) => {
+      return store.get('identity-key-pair');
+    }).then((result) => {
+      if (result && result.deviceId === deviceId) {
+        return result.identityKeyPair;
       }
       return null;
     });

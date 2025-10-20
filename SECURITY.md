@@ -2,12 +2,12 @@
 
 ## Supported Versions
 
-EfSec is **experimental** and not yet production-ready. Security hardening is ongoing.
+efsec is **experimental** and not yet production-ready. Security hardening is ongoing.
 
 ## Reporting a Vulnerability
 
 Please email **security@efchat.net** with the subject:  
-`[EfSec Security Disclosure] <short title>`
+`[efsec Security Disclosure] <short title>`
 
 Include:
 
@@ -20,7 +20,7 @@ We acknowledge reports within **48 hours** and will coordinate on fixes and disc
 
 ## Scope
 
-- EfSec wrapper code, key handling, and storage logic
+- efsec wrapper code, key handling, and storage logic
 - Integration with `@matrix-org/matrix-sdk-crypto-wasm`
 
 Out of scope: upstream Matrix libraries (report to the Matrix.org team).

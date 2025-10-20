@@ -1,12 +1,12 @@
-# EfSec — Matrix Protocol End-to-End Encryption (in progress)
+# efsec — Matrix Protocol End-to-End Encryption (in progress)
 
 [![npm version](https://badge.fury.io/js/efsec.svg)](https://badge.fury.io/js/efsec)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL%20v3+-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![status: experimental](https://img.shields.io/badge/status-experimental-orange)](./SECURITY.md)
 
-**EfSec** is an in-progress, experimental end-to-end encryption library providing a high-level TypeScript interface to the [Matrix](https://matrix.org) E2E encryption standards. It builds on top of [`@matrix-org/matrix-sdk-crypto-wasm`](https://github.com/matrix-org/matrix-rust-sdk/tree/main/crates/matrix-sdk-crypto) (Matrix’s audited cryptographic implementation), offering both convenience wrappers and direct access to the underlying cryptographic primitives.
+**efsec** is an in-progress, experimental end-to-end encryption library providing a high-level TypeScript interface to the [Matrix](https://matrix.org) E2E encryption standards. It builds on top of [`@matrix-org/matrix-sdk-crypto-wasm`](https://github.com/matrix-org/matrix-rust-sdk/tree/main/crates/matrix-sdk-crypto) (Matrix’s audited cryptographic implementation), offering both convenience wrappers and direct access to the underlying cryptographic primitives.
 
-> ⚠️ **Development status:** EfSec is **not yet production-ready**. It’s an exploratory reference implementation under active development. Security audits are ongoing; do not use EfSec in applications that handle sensitive data in production environments.
+> ⚠️ **Development status:** efsec is **not yet production-ready**. It’s an exploratory reference implementation under active development. Security audits are ongoing; do not use efsec in applications that handle sensitive data in production environments.
 
 ---
 
@@ -89,7 +89,7 @@ console.log(keys.curve25519.toBase64(), keys.ed25519.toBase64());
 
 ## 🔐 Key Storage
 
-EfSec offers secure IndexedDB-based key persistence:
+efsec offers secure IndexedDB-based key persistence:
 
 ```typescript
 import { KeyStore } from "efsec";
@@ -144,7 +144,7 @@ await keyStore.importData(backup);
 
 ## 🧱 Architecture
 
-EfSec uses a dual-layer design:
+efsec uses a dual-layer design:
 
 1. High-level API — ergonomic wrappers for common tasks.
 2. Direct SDK access — full Matrix control via `@matrix-org/matrix-sdk-crypto-wasm`.
@@ -190,7 +190,7 @@ for (const req of requests) {
 
 ## 🧯 Error Handling
 
-EfSec defines clear error classes for predictable behavior:
+efsec defines clear error classes for predictable behavior:
 
 ```typescript
 import { DecryptionError, SessionError, KeyError } from "efsec";
@@ -232,7 +232,7 @@ Requirements:
 
 ## 🛡️ Security & Auditing
 
-EfSec’s cryptography builds on formally audited Matrix libraries:
+efsec’s cryptography builds on formally audited Matrix libraries:
 
 - Matrix SDK Crypto: `@matrix-org/matrix-sdk-crypto-wasm`
 - Vodozemac: audited by Least Authority
@@ -240,7 +240,7 @@ EfSec’s cryptography builds on formally audited Matrix libraries:
 
 All private-key operations occur client-side. Server components have zero knowledge of plaintext or key material.
 
-Security researchers are welcome to review EfSec’s wrapper layer — see `SECURITY.md` for guidelines.
+Security researchers are welcome to review efsec’s wrapper layer — see `SECURITY.md` for guidelines.
 
 ---
 
@@ -254,7 +254,7 @@ Found a potential vulnerability? Please review our [SECURITY.md](./SECURITY.md) 
 
 GPL v3 or later — see `LICENSE`.
 
-EfSec is free software: you can redistribute or modify it under the terms of the GNU General Public License v3 or (at your option) any later version.
+efsec is free software: you can redistribute or modify it under the terms of the GNU General Public License v3 or (at your option) any later version.
 
 ---
 
@@ -285,4 +285,4 @@ See `CHANGELOG.md` for version history.
 
 ---
 
-Disclaimer: EfSec is experimental software under active development. Do not deploy it in production or rely on it for protecting confidential data without an independent security audit.
+Disclaimer: efsec is experimental software under active development. Do not deploy it in production or rely on it for protecting confidential data without an independent security audit.

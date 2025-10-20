@@ -27,7 +27,7 @@ import {
   initializeWasm,
 } from '../src/index.js';
 
-describe('EfSec Crypto Functions', () => {
+describe('efsec Crypto Functions', () => {
   beforeAll(async () => {
     await initializeWasm('@test-user:example.com', 'test-device-1');
   });
